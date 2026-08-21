@@ -1,0 +1,14 @@
+{
+  "ızgara tavuk salata": ["tavuk", "salata", "domates", "salatalık"],
+  "yulaflı meyveli pancake": ["yulaf", "muz", "yumurta", "süt"],
+  "mercimek çorbası": ["mercimek", "soğan", "havuç"],
+  "nohutlu buddha bowl": ["nohut", "salata", "avokado", "domates"],
+  "sebzeli omlet": ["yumurta", "domates", "biber"],
+  "ton balıklı sandviç": ["ton balığı", "ekmek", "marul", "domates"],
+  "yoğurtlu meyve kasesi": ["yoğurt", "meyve", "muz"],
+  "fırında sebzeli somon": ["somon", "sebze", "limon"],
+  "tavuklu sebze sote": ["tavuk", "sebze", "biber"],
+  "avokadolu kinoa salatası": ["avokado", "kinoa", "salata"],
+  "sebzeli makarna": ["makarna", "domates", "sebze"],
+  "fıstık ezmeli smoothie": ["fıstık ezmesi", "muz", "süt"]
+}

@@ -1,0 +1,20 @@
+{
+  "peynirli sebzeli tost": ["peynir", "ekmek", "domates"],
+  "muzlu chia puding": ["muz", "süt", "chia"],
+  "sebzeli menemen": ["yumurta", "domates", "biber"],
+  "tarhana çorbası": ["tarhana", "yoğurt", "domates"],
+  "sebze çorbası": ["sebze", "havuç", "patates"],
+  "ezogelin çorbası": ["mercimek", "bulgur", "pirinç"],
+  "akdeniz salatası": ["domates", "salatalık", "peynir"],
+  "yoğurtlu semizotu salatası": ["yoğurt", "semizotu", "sarımsak"],
+  "kısır": ["bulgur", "domates", "maydanoz"],
+  "fırında tavuk ve patates": ["tavuk", "patates", "soğan"],
+  "etli sebze güveç": ["et", "sebze", "domates"],
+  "zeytinyağlı taze fasulye": ["fasulye", "domates", "zeytinyağı"],
+  "hindi köfte": ["hindi", "yumurta", "soğan"],
+  "fırında kabak mücver": ["kabak", "yumurta", "peynir"],
+  "kuru meyveli enerji topları": ["kuru meyve", "yulaf", "bal"],
+  "humus ve sebze tabağı": ["nohut", "tahin", "havuç"],
+  "çilekli kefir smoothie": ["çilek", "kefir", "muz"],
+  "kakaolu protein smoothie": ["kakao", "süt", "muz"]
+}

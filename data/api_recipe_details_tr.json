@@ -1,0 +1,72 @@
+{
+  "634726": {
+    "ingredient_details": ["300 g ayıklanmış karides", "100 g un", "150 ml soğuk bira", "1 yumurta akı", "Kızartmak için sıvı yağ", "Servis için 3 yemek kaşığı tartar sos"],
+    "analyzed_steps": [
+      {"step": "Un ve soğuk birayı pürüzsüz olana kadar karıştırın. Hamuru buzdolabında en az 2 saat dinlendirin."},
+      {"step": "Kızartmaya başlamadan hemen önce yumurta akını köpürtüp hamura nazikçe karıştırın."},
+      {"step": "Yağı derin bir tavada yaklaşık 175-180 dereceye kadar ısıtın."},
+      {"step": "Karidesleri tek tek hamura bulayıp tavayı kalabalıklaştırmadan 2-3 dakika, altın rengi olana kadar kızartın."},
+      {"step": "Fazla yağını kâğıt havluda süzdürün ve tartar sosla sıcak servis edin."}
+    ]
+  },
+  "633348": {
+    "ingredient_details": ["300 g ayıklanmış karides", "6 ince dilim pastırma veya füme et", "12 yaprak taze fesleğen", "1 yemek kaşığı balzamik sirke", "1 çay kaşığı iri çekilmiş karabiber", "12 adet kürdan"],
+    "analyzed_steps": [
+      {"step": "Karidesleri balzamik sirke ve karabiberle harmanlayın."},
+      {"step": "Her pastırma diliminin üzerine fesleğen koyun, bir karidesi sarın ve kürdanla sabitleyin."},
+      {"step": "Sarılan karidesleri fırın tepsisine aralıklı olarak dizin."},
+      {"step": "Fırının üst ızgara ayarında her yüzünü yaklaşık 5 dakika pişirin."},
+      {"step": "Karidesler tamamen opaklaşınca fesleğenle süsleyip sıcak servis edin."}
+    ]
+  },
+  "644148": {
+    "ingredient_details": ["300 g ayıklanmış karides", "3 diş ince doğranmış sarımsak", "1 küçük acı biber", "2 yemek kaşığı zeytinyağı", "2 dilim ekmek", "Yarım çay kaşığı tuz"],
+    "analyzed_steps": [
+      {"step": "Karidesleri yıkayıp kâğıt havluyla iyice kurulayın; sarımsak ve acı biberi ince doğrayın."},
+      {"step": "Geniş bir tavayı yüksek ateşte ısıtıp zeytinyağını ekleyin."},
+      {"step": "Sarımsak ve acı biberi yaklaşık 30 saniye, yakmadan soteleyin."},
+      {"step": "Karidesleri tavaya tek sıra hâlinde ekleyin ve her yüzünü 1-2 dakika, pembeleşip içi opaklaşana kadar pişirin."},
+      {"step": "Tuzunu ayarlayın; tavada oluşan aromalı yağı çekmesi için ekmek dilimleriyle sıcak servis edin."}
+    ]
+  },
+  "632017": {
+    "ingredient_details": ["250 g sert tofu", "3 yemek kaşığı mısır nişastası", "Kızartmak için sıvı yağ", "2 dal taze soğan", "2 yemek kaşığı hoisin sos"],
+    "analyzed_steps": [
+      {"step": "Tofunun fazla suyunu alın ve 12 eşit küp hâlinde kesin."},
+      {"step": "Tofu küplerini mısır nişastasına bulayıp her tarafını ince bir tabakayla kaplayın."},
+      {"step": "Yağı tavada ısıtın ve tofuları her yüzü 3-5 dakika olacak şekilde çıtırlaşana kadar kızartın."},
+      {"step": "Fazla yağı kâğıt havluda süzdürün."},
+      {"step": "Üzerine doğranmış taze soğan ve hoisin sos ekleyip hemen servis edin."}
+    ]
+  },
+  "660032": {
+    "ingredient_details": ["300 g ayıklanmış karides", "8 küçük patates", "5 diş sarımsak", "Yarım demet maydanoz", "3 yemek kaşığı yoğurt", "2 yemek kaşığı zeytinyağı", "Tuz ve karabiber"],
+    "analyzed_steps": [
+      {"step": "Patatesleri kabuklarıyla yıkayın ve yumuşayana kadar haşlayın."},
+      {"step": "Patatesleri dörde bölün; tavada zeytinyağı ve 3 diş sarımsakla altın rengi olana kadar kızartıp tabağa alın."},
+      {"step": "Aynı tavaya kalan sarımsağı, maydanozun yarısını ve karidesleri ekleyin."},
+      {"step": "Karidesleri 2-3 dakika, pembeleşip içi opaklaşana kadar soteleyin."},
+      {"step": "Yoğurt, kalan maydanoz ve bir miktar sarımsağı karıştırarak sos hazırlayın; patates ve karidesle servis edin."}
+    ]
+  },
+  "769775": {
+    "ingredient_details": ["4 adet yumurta", "2 su bardağı ıspanak", "1 orta boy domates", "Yarım küçük soğan", "1 yemek kaşığı zeytinyağı", "Tuz ve karabiber"],
+    "analyzed_steps": [
+      {"step": "Fırını 180 dereceye ısıtın; ıspanak, domates ve soğanı doğrayın."},
+      {"step": "Fırına girebilen tavada zeytinyağını ısıtıp soğanı 2 dakika soteleyin."},
+      {"step": "Ispanak ve domatesi ekleyip 2-3 dakika, ıspanak sönene kadar pişirin."},
+      {"step": "Yumurtaları tuz ve karabiberle çırpıp sebzelerin üzerine dökün."},
+      {"step": "Tavayı fırına alın ve yumurta tamamen sabitlenene kadar yaklaşık 12-15 dakika pişirin."}
+    ]
+  },
+  "662276": {
+    "ingredient_details": ["4 adet yumurta", "6 parça güneşte kurutulmuş domates", "1 yemek kaşığı zeytinyağı", "1 yemek kaşığı doğranmış taze ot", "Tuz ve karabiber"],
+    "analyzed_steps": [
+      {"step": "Fırını 175 dereceye ısıtın."},
+      {"step": "İki küçük fırın kabının içini zeytinyağıyla yağlayın."},
+      {"step": "Kapların tabanına güneşte kurutulmuş domatesleri yerleştirin ve her kaba ikişer yumurta kırın."},
+      {"step": "Üzerine taze ot, tuz ve karabiber serpin."},
+      {"step": "Yumurta akları tamamen katılaşana kadar 15-20 dakika üzeri açık pişirip hemen servis edin."}
+    ]
+  }
+}

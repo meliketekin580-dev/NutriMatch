@@ -1,0 +1,1052 @@
+[
+  {
+    "name": "Izgara Tavuk Salata",
+    "image": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=700&q=85",
+    "calories": 420,
+    "protein": 32,
+    "score": 88,
+    "missing": [],
+    "label": "Yerel tarif",
+    "detail": "dengeli öğle yemeği",
+    "show_missing": false
+  },
+  {
+    "name": "Yulaflı Meyveli Pancake",
+    "image": "https://images.unsplash.com/photo-1528207776546-365bb710ee93?auto=format&fit=crop&w=700&q=85",
+    "calories": 310,
+    "protein": 13,
+    "score": 82,
+    "missing": [],
+    "label": "Yerel tarif",
+    "detail": "kahvaltı",
+    "show_missing": false
+  },
+  {
+    "name": "Mercimek Çorbası",
+    "image": "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=700&q=85",
+    "calories": 280,
+    "protein": 16,
+    "score": 85,
+    "missing": [],
+    "label": "Yerel tarif",
+    "detail": "hafif akşam yemeği",
+    "show_missing": false
+  },
+  {
+    "name": "Nohutlu Buddha Bowl",
+    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
+    "calories": 390,
+    "protein": 18,
+    "score": 84,
+    "missing": [],
+    "label": "Yerel tarif",
+    "detail": "vejetaryen öğün",
+    "show_missing": false
+  },
+  {
+    "name": "Sebzeli Omlet",
+    "image": "static/images/sebzeli_omlet.png",
+    "calories": 260,
+    "protein": 20,
+    "score": 83,
+    "missing": [],
+    "label": "Yerel tarif",
+    "detail": "proteinli kahvaltı",
+    "show_missing": false
+  },
+  {
+    "name": "Ton Balıklı Sandviç",
+    "image": "https://images.unsplash.com/photo-1553909489-cd47e0907980?auto=format&fit=crop&w=700&q=85",
+    "calories": 430,
+    "protein": 29,
+    "score": 81,
+    "missing": [],
+    "label": "Yerel tarif",
+    "detail": "pratik öğle yemeği",
+    "show_missing": false
+  },
+  {
+    "name": "Yoğurtlu Meyve Kasesi",
+    "image": "https://images.unsplash.com/photo-1488477181946-6428a0291777?auto=format&fit=crop&w=700&q=85",
+    "calories": 220,
+    "protein": 12,
+    "score": 80,
+    "missing": [],
+    "label": "Yerel tarif",
+    "detail": "hafif atıştırmalık",
+    "show_missing": false
+  },
+  {
+    "name": "Fırında Sebzeli Somon",
+    "image": "https://images.unsplash.com/photo-1467003909585-2f8a72700288?auto=format&fit=crop&w=700&q=85",
+    "calories": 510,
+    "protein": 38,
+    "score": 90,
+    "missing": [],
+    "label": "Yerel tarif",
+    "detail": "omega-3 kaynağı",
+    "show_missing": false
+  },
+  {
+    "name": "Tavuklu Sebze Sote",
+    "image": "",
+    "calories": 450,
+    "protein": 35,
+    "score": 87,
+    "missing": [],
+    "label": "Yerel tarif",
+    "detail": "yüksek protein",
+    "show_missing": false
+  },
+  {
+    "name": "Avokadolu Kinoa Salatası",
+    "image": "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=85",
+    "calories": 360,
+    "protein": 14,
+    "score": 82,
+    "missing": [],
+    "label": "Yerel tarif",
+    "detail": "lifli öğün",
+    "show_missing": false
+  },
+  {
+    "name": "Sebzeli Makarna",
+    "image": "https://images.unsplash.com/photo-1473093295043-cdd812d0e601?auto=format&fit=crop&w=700&q=85",
+    "calories": 470,
+    "protein": 17,
+    "score": 78,
+    "missing": [],
+    "label": "Yerel tarif",
+    "detail": "dengeli akşam yemeği",
+    "show_missing": false
+  },
+  {
+    "name": "Fıstık Ezmeli Smoothie",
+    "image": "https://images.unsplash.com/photo-1553530666-ba11a7da3888?auto=format&fit=crop&w=700&q=85",
+    "calories": 340,
+    "protein": 19,
+    "score": 79,
+    "missing": [],
+    "label": "Yerel tarif",
+    "detail": "enerji içeceği",
+    "show_missing": false
+  },
+  {
+    "name": "Peynirli Sebzeli Tost",
+    "image": "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=700&q=85",
+    "calories": 360,
+    "protein": 18,
+    "carbohydrates": 42,
+    "fat": 14,
+    "score": 78,
+    "label": "Yerel tarif",
+    "detail": "pratik kahvaltı",
+    "show_missing": false
+  },
+  {
+    "name": "Muzlu Chia Puding",
+    "image": "",
+    "calories": 240,
+    "protein": 8,
+    "carbohydrates": 31,
+    "fat": 10,
+    "score": 76,
+    "label": "Yerel tarif",
+    "detail": "hafif kahvaltı",
+    "show_missing": false
+  },
+  {
+    "name": "Sebzeli Menemen",
+    "image": "static/images/sebzeli_menemen.png",
+    "calories": 290,
+    "protein": 17,
+    "carbohydrates": 18,
+    "fat": 16,
+    "score": 82,
+    "label": "Yerel tarif",
+    "detail": "geleneksel kahvaltı",
+    "show_missing": false
+  },
+  {
+    "name": "Tarhana Çorbası",
+    "image": "",
+    "calories": 230,
+    "protein": 9,
+    "carbohydrates": 34,
+    "fat": 7,
+    "score": 75,
+    "label": "Yerel tarif",
+    "detail": "sıcak çorba",
+    "show_missing": false
+  },
+  {
+    "name": "Sebze Çorbası",
+    "image": "https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?auto=format&fit=crop&w=700&q=85",
+    "calories": 190,
+    "protein": 7,
+    "carbohydrates": 28,
+    "fat": 6,
+    "score": 78,
+    "label": "Yerel tarif",
+    "detail": "hafif çorba",
+    "show_missing": false
+  },
+  {
+    "name": "Ezogelin Çorbası",
+    "image": "",
+    "calories": 260,
+    "protein": 12,
+    "carbohydrates": 38,
+    "fat": 7,
+    "score": 80,
+    "label": "Yerel tarif",
+    "detail": "doyurucu çorba",
+    "show_missing": false
+  },
+  {
+    "name": "Akdeniz Salatası",
+    "image": "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=700&q=85",
+    "calories": 280,
+    "protein": 9,
+    "carbohydrates": 20,
+    "fat": 18,
+    "score": 81,
+    "label": "Yerel tarif",
+    "detail": "taze salata",
+    "show_missing": false
+  },
+  {
+    "name": "Yoğurtlu Semizotu Salatası",
+    "image": "",
+    "calories": 210,
+    "protein": 11,
+    "carbohydrates": 14,
+    "fat": 12,
+    "score": 80,
+    "label": "Yerel tarif",
+    "detail": "hafif salata",
+    "show_missing": false
+  },
+  {
+    "name": "Kısır",
+    "image": "static/images/kisir.png",
+    "calories": 320,
+    "protein": 8,
+    "carbohydrates": 48,
+    "fat": 10,
+    "score": 77,
+    "label": "Yerel tarif",
+    "detail": "bulgur salatası",
+    "show_missing": false
+  },
+  {
+    "name": "Fırında Tavuk ve Patates",
+    "image": "https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=700&q=85",
+    "calories": 520,
+    "protein": 37,
+    "carbohydrates": 42,
+    "fat": 20,
+    "score": 84,
+    "label": "Yerel tarif",
+    "detail": "ana yemek",
+    "show_missing": false
+  },
+  {
+    "name": "Etli Sebze Güveç",
+    "image": "",
+    "calories": 480,
+    "protein": 31,
+    "carbohydrates": 27,
+    "fat": 24,
+    "score": 83,
+    "label": "Yerel tarif",
+    "detail": "doyurucu ana yemek",
+    "show_missing": false
+  },
+  {
+    "name": "Zeytinyağlı Taze Fasulye",
+    "image": "",
+    "calories": 250,
+    "protein": 8,
+    "carbohydrates": 29,
+    "fat": 12,
+    "score": 79,
+    "label": "Yerel tarif",
+    "detail": "zeytinyağlı yemek",
+    "show_missing": false
+  },
+  {
+    "name": "Hindi Köfte",
+    "image": "https://images.unsplash.com/photo-1529042410759-befb1204b468?auto=format&fit=crop&w=700&q=85",
+    "calories": 410,
+    "protein": 35,
+    "carbohydrates": 18,
+    "fat": 22,
+    "score": 87,
+    "label": "Yerel tarif",
+    "detail": "yüksek protein",
+    "show_missing": false
+  },
+  {
+    "name": "Fırında Kabak Mücver",
+    "image": "static/images/firinda_kabak_mucver.png",
+    "calories": 300,
+    "protein": 13,
+    "carbohydrates": 25,
+    "fat": 16,
+    "score": 78,
+    "label": "Yerel tarif",
+    "detail": "sebzeli ana yemek",
+    "show_missing": false
+  },
+  {
+    "name": "Kuru Meyveli Enerji Topları",
+    "image": "",
+    "calories": 180,
+    "protein": 5,
+    "carbohydrates": 25,
+    "fat": 8,
+    "score": 74,
+    "label": "Yerel tarif",
+    "detail": "atıştırmalık",
+    "show_missing": false
+  },
+  {
+    "name": "Humus ve Sebze Tabağı",
+    "image": "https://images.unsplash.com/photo-1577805947697-89e18249d767?auto=format&fit=crop&w=700&q=85",
+    "calories": 290,
+    "protein": 10,
+    "carbohydrates": 31,
+    "fat": 14,
+    "score": 81,
+    "label": "Yerel tarif",
+    "detail": "sağlıklı atıştırmalık",
+    "show_missing": false
+  },
+  {
+    "name": "Çilekli Kefir Smoothie",
+    "image": "",
+    "calories": 210,
+    "protein": 11,
+    "carbohydrates": 32,
+    "fat": 5,
+    "score": 79,
+    "label": "Yerel tarif",
+    "detail": "ferah smoothie",
+    "show_missing": false
+  },
+  {
+    "name": "Kakaolu Protein Smoothie",
+    "image": "",
+    "calories": 280,
+    "protein": 24,
+    "carbohydrates": 26,
+    "fat": 9,
+    "score": 86,
+    "label": "Yerel tarif",
+    "detail": "proteinli içecek",
+    "show_missing": false
+  },
+  {
+    "id": 634726,
+    "name": "Bira - Hamurlu Kızarmış Karides",
+    "score": 72,
+    "calories": 228.53,
+    "protein": 34.81,
+    "carbohydrates": 4.85,
+    "fat": 3.83,
+    "used": 1,
+    "total": 3,
+    "missing": [
+      "bira hamuru",
+      "tartar sosu"
+    ],
+    "image": "https://img.spoonacular.com/recipes/634726-556x370.jpg",
+    "source_url": "http://www.foodista.com/recipe/YQZLS6P8/beer-batter-fried-shrimp",
+    "ready_in_minutes": 45,
+    "instructions": "<ol><li>Prepare the beer-batter base at least 2 hours in advance. Before using fold in the egg white.</li><li>Heat the oil in a deep fat fryer, wok or skillet to a temperature of about 350-360 degrees. Add shrimp the batter. Lift one shrimp at a time from the batter using the tines of a two pronged fork, and quickly add each shrimp to the oil. The shrimp will rise to the surface. Do not over crowd. As you fry, take care to remove and discard browned bits and pieces of batter that may accumulate from the drippings. Let one batch cook, stirring 2 or 3 minutes or until golden brown and crisp all over. Drain on paper towels. Serve hot with tartar sauce for dripping. Yields 52-56 shrimp.</li></ol>",
+    "label": "Önbellek tarif",
+    "show_missing": false
+  },
+  {
+    "id": 633348,
+    "name": "Pastırma Sarılmış Fesleğen ve Telliçeri Biberli Karides",
+    "score": 63,
+    "calories": 113.45,
+    "protein": 14.27,
+    "carbohydrates": 3.05,
+    "fat": 4.48,
+    "used": 1,
+    "total": 4,
+    "missing": [
+      "Bacon",
+      "balzamik sirke",
+      "fesleğen yaprakları"
+    ],
+    "image": "https://img.spoonacular.com/recipes/633348-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/7ZTLJVLN/bacon-wrapped-prawns-with-basil-and-tellicherry-pepper",
+    "ready_in_minutes": 45,
+    "instructions": "<ol><li>Place prawns in a bowl. Splash on a bit of balsamic vinegar and dust with tellicherry pepper. Stir to coat.</li><li>On a work surface, place 1 half-slice of bacon. Tear a basil leaf in half lengthwise and lay end to end on bacon. Starting with the head end, wrap one prawn with the bacon slice by placing end of prawn on bacon and beginning to roll towards tail, almost entirely encasing prawn and basil. Secure with toothpick and place on baking sheet. Repeat with remaining prawns.</li><li>Place baking sheet 4-6 inches under broiler and broil approximately 5 minutes per side, turning once.</li><li>Remove from broiler and sprinkle generously with coarsely ground tellicherry pepper. Garnish with whole basil leaves and serve.</li></ol>",
+    "label": "Önbellek tarif",
+    "show_missing": false
+  },
+  {
+    "id": 644148,
+    "name": "Gambas Al Ajo",
+    "score": 56,
+    "calories": 113.29,
+    "protein": 7.08,
+    "carbohydrates": 4.81,
+    "fat": 7.53,
+    "used": 1,
+    "total": 4,
+    "missing": [
+      "slc ekmeği",
+      "acı biber",
+      "clv sarımsak"
+    ],
+    "image": "https://img.spoonacular.com/recipes/644148-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/WN7Z3KFX/gambas-al-ajo",
+    "ready_in_minutes": 45,
+    "instructions": "<ol><li>Heat a frypan over high heat, add the oil.</li><li>Add the garlic and chili pepper and cook for 30 seconds. Add the prawns and cook for 1-2 minutes, until they just turn pink.</li><li>Place the bread on top (to soak up the spitting oil) and serve.</li></ol>",
+    "label": "Önbellek tarif",
+    "show_missing": false
+  },
+  {
+    "id": 632017,
+    "name": "Agedashi Tofu",
+    "score": 41,
+    "calories": 381.38,
+    "protein": 17.89,
+    "carbohydrates": 47.64,
+    "fat": 13.13,
+    "used": 1,
+    "total": 4,
+    "missing": [
+      "mısır nişastası",
+      "yeşil soğan",
+      "kuru üzüm sosu"
+    ],
+    "image": "https://img.spoonacular.com/recipes/632017-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/YB4TVWPC/agedashi-tofu",
+    "ready_in_minutes": 45,
+    "instructions": "<ol><li>Cut tofu into 12 cubes. Place cornstarch on a plate or in a shallow bowl and dredge tofu in it, coating thoroughly.</li><li>Heat enough oil so that tofu will be half-way submerged. Fry tofu in hot oil for 3 to 5 minutes on each side, or until crispy. Drain on paper towels.</li><li>Sprinkle green onions over tofu and drizzle with hoisin sauce. Serve immediately.</li></ol>",
+    "label": "Önbellek tarif",
+    "show_missing": false
+  },
+  {
+    "id": 660032,
+    "name": "Karides ve Patatas Bravas",
+    "score": 37,
+    "calories": 1368.5,
+    "protein": 68.88,
+    "carbohydrates": 243.68,
+    "fat": 16.35,
+    "used": 1,
+    "total": 4,
+    "missing": [
+      "sarımsak karanfil",
+      "maydanoz elleri",
+      "patates"
+    ],
+    "image": "https://img.spoonacular.com/recipes/660032-556x370.jpg",
+    "source_url": "http://www.foodista.com/recipe/CQ7BF5QY/shrimps-and-patatas-bravas",
+    "ready_in_minutes": 45,
+    "instructions": "<ol><li>Boil 8 small potatoes(new ones are better) in their skin.</li><li>Cut them in quarters and fry them in a pan with 3 garlic cloves until garlic is golden brown. put all on a plate</li><li>In the same pan put the rest of the garlic and parsley together with shrimps. sautee for 2-3 minutes.</li><li>Serve with a dressing made from yogurt, parsley, garlic and extravergin olive oil.</li></ol>",
+    "label": "Önbellek tarif",
+    "show_missing": false
+  },
+  {
+    "id": 769775,
+    "name": "Basit Ispanaklı ve Domatesli Frittata",
+    "score": 67,
+    "calories": 162.82,
+    "protein": 13.45,
+    "carbohydrates": 8.38,
+    "fat": 8.66,
+    "used": 2,
+    "total": 4,
+    "missing": [
+      "kişisel tava",
+      "ıspanak yaprakları"
+    ],
+    "image": "https://img.spoonacular.com/recipes/769775-556x370.jpg",
+    "source_url": "https://www.pinkwhen.com/spinach-and-tomato-frittata/",
+    "ready_in_minutes": 45,
+    "instructions": null,
+    "label": "Önbellek tarif",
+    "detail": "2/4 malzeme uyumu",
+    "show_missing": false
+  },
+  {
+    "id": 662276,
+    "name": "Güneşte Kurutulmuş Domates ve Otlu Fırında Yumurta",
+    "score": 65,
+    "calories": 178.77,
+    "protein": 11.83,
+    "carbohydrates": 3.45,
+    "fat": 13.02,
+    "used": 2,
+    "total": 4,
+    "missing": [
+      "reyhan",
+      "maydanoz"
+    ],
+    "image": "https://img.spoonacular.com/recipes/662276-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/V4LG5KBB/sundried-tomato-and-herb-baked-eggs",
+    "ready_in_minutes": 25,
+    "instructions": "<ol><li>Preheat oven to 350 F.</li><li>Cover the inside of one ramekin or oven safe dish with olive oil.</li><li>Line the bottom of the dish with sundried tomatoes and break two eggs on top. Sprinkle with fresh herbs.</li><li>Bake uncovered for 15-20 minutes until egg whites are firm.</li><li>Serve immediately.</li></ol>",
+    "label": "Önbellek tarif",
+    "detail": "2/4 malzeme uyumu",
+    "show_missing": false
+  },
+  {
+    "id": 642303,
+    "name": "Patlıcan pizzası",
+    "score": 59,
+    "calories": 178.49,
+    "protein": 10.99,
+    "carbohydrates": 11.43,
+    "fat": 10.72,
+    "used": 2,
+    "total": 4,
+    "missing": [
+      "yuvarlak patlıcan",
+      "fesleğen ve kekik yaprakları"
+    ],
+    "ingredients": [
+      "domates",
+      "i̇sviçre peyniri",
+      "yuvarlak patlıcan",
+      "fesleğen ve kekik yaprakları"
+    ],
+    "ingredient_details": [
+      "1 büyük yuvarlak patlıcan, yıkanmış, yuvarlak dilimlenmiş",
+      "10 yemek kaşığı doğranmış domates",
+      "100 gr İsviçre peyniri, iri rendelenmiş",
+      "Fesleğen ve kekik yaprakları (taze veya kurutulmuş)"
+    ],
+    "image": "https://img.spoonacular.com/recipes/642303-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/Z8BW2C8N/eggplant-pizzette",
+    "ready_in_minutes": 45,
+    "preparation_minutes": null,
+    "cooking_minutes": null,
+    "servings": 3,
+    "instructions": "Place eggplant rounds in a non-stick pan greased with olive oil and bake in the oven for 10 minutes at 230C. Remove the pan from oven, but leave baked eggplant inside.\nCover each eggplant round with one spoon of chopped tomatoes, sprinkle with oregano and basil leaves.\nTop with grated cheese and bake an additional 5 minutes in the oven at the same temperature, until cheese is melted and golden brown.\nServe pizzette warm or cooled as an appetizer or as a stand-alone small meal.",
+    "analyzed_steps": [
+      {
+        "number": 1,
+        "step": "Patlıcan yuvarlaklarını zeytinyağıyla yağlanmış yapışmaz bir tavaya yerleştirin ve 230C sıcaklıktaki fırında 10 dakika pişirin.",
+        "ingredients": [
+          "zeytinyağı",
+          "patlıcan"
+        ],
+        "equipment": [
+          "fırın",
+          "tava"
+        ]
+      },
+      {
+        "number": 2,
+        "step": "Tavayı fırından çıkarın, ancak fırında patlıcanları içeride bırakın.",
+        "ingredients": [
+          "patlıcan"
+        ],
+        "equipment": [
+          "fırın",
+          "tava"
+        ]
+      },
+      {
+        "number": 3,
+        "step": "Her patlıcanın etrafını bir kaşık doğranmış domatesle kaplayın, kekik ve fesleğen yapraklarını serpin.",
+        "ingredients": [
+          "taze fesleğen",
+          "patlıcan",
+          "domates",
+          "kekik"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 4,
+        "step": "Üzerine rendelenmiş peynir serpin ve peynir eriyip altın rengi kahverengi olana kadar aynı sıcaklıkta fırında 5 dakika daha pişirin.",
+        "ingredients": [
+          "peynir"
+        ],
+        "equipment": [
+          "fırın"
+        ]
+      },
+      {
+        "number": 5,
+        "step": "Pizzette'i meze olarak veya tek başına küçük bir yemek olarak sıcak veya soğutulmuş olarak servis edin.",
+        "ingredients": [],
+        "equipment": []
+      }
+    ],
+    "label": "Önbellek tarif",
+    "detail": "2/4 malzeme uyumu",
+    "show_missing": false
+  },
+  {
+    "id": 648368,
+    "name": "Keçi Peynirli Jalapeno Queso",
+    "score": 52,
+    "calories": 474.18,
+    "protein": 31.71,
+    "carbohydrates": 17.58,
+    "fat": 32.39,
+    "used": 2,
+    "total": 4,
+    "missing": [
+      "adet. jalapeno biberi",
+      "acı sos"
+    ],
+    "ingredients": [
+      "keçi peyniri",
+      "konserve domates",
+      "adet. jalapeno biberi",
+      "acı sos"
+    ],
+    "ingredient_details": [
+      "1 paket (5,3 oz) Chavrie gibi Taze Keçi Peyniri",
+      "8 oz. domatesleri küp küp doğrayıp süzebilirsiniz",
+      "1 adet jalapeno biberi doğranmış",
+      "2 çay kaşığı acı sos"
+    ],
+    "image": "https://img.spoonacular.com/recipes/648368-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/H6XM7BBC/jalapeno-queso-with-goat-cheese",
+    "ready_in_minutes": 45,
+    "preparation_minutes": null,
+    "cooking_minutes": null,
+    "servings": 1,
+    "instructions": "Mix all ingredients in a glass bowl and slowly heat in the microwave until piping hot.\nSalt and freshly ground black pepper to taste.",
+    "analyzed_steps": [
+      {
+        "number": 1,
+        "step": "Tüm malzemeleri bir cam kasede karıştırın ve mikrodalgada iyice ısınana kadar yavaş yavaş ısıtın.",
+        "ingredients": [],
+        "equipment": [
+          "mikrodalga",
+          "tas"
+        ]
+      },
+      {
+        "number": 2,
+        "step": "Tatmak için tuz ve taze çekilmiş karabiber.",
+        "ingredients": [
+          "öğütülmüş karabiber",
+          "tuz"
+        ],
+        "equipment": []
+      }
+    ],
+    "label": "Önbellek tarif",
+    "detail": "2/4 malzeme uyumu",
+    "show_missing": false
+  },
+  {
+    "id": 644953,
+    "name": "Keçi Peynirli Pestolu Pizza",
+    "score": 30,
+    "calories": 517.3,
+    "protein": 12.35,
+    "carbohydrates": 54.4,
+    "fat": 27.56,
+    "used": 2,
+    "total": 4,
+    "missing": [
+      "pizza kabuğu",
+      "pesto"
+    ],
+    "ingredients": [
+      "domates",
+      "keçi peyniri",
+      "pizza kabuğu",
+      "pesto"
+    ],
+    "ingredient_details": [
+      "1 adet hazırlanmış pizza kabuğu, 14 inç",
+      "1 bardak pesto",
+      "1 su bardağı doğranmış domates",
+      "1 paket ufalanmış keçi peyniri, Alouette Provence çeşidi"
+    ],
+    "image": "https://img.spoonacular.com/recipes/644953-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/NYLVT4DN/goat-cheese-pesto-pizza",
+    "ready_in_minutes": 45,
+    "preparation_minutes": null,
+    "cooking_minutes": null,
+    "servings": 4,
+    "instructions": "Preheat oven to 400F.\nSpread pesto evenly over the top of the pizza crust.\nSprinkle diced tomato over pesto.\nTop with crumbled goat cheese\nBake in oven for 12-15 minutes until pizza crust edges begin to brown.\nCut in wedges and serve",
+    "analyzed_steps": [
+      {
+        "number": 1,
+        "step": "Fırını 400F'ye önceden ısıtın.",
+        "ingredients": [],
+        "equipment": [
+          "fırın"
+        ]
+      },
+      {
+        "number": 2,
+        "step": "Pesto sosunu pizza hamurunun üzerine eşit şekilde yayın.",
+        "ingredients": [
+          "hazırlanmış pizza kabuğu",
+          "yaymak",
+          "pesto"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 3,
+        "step": "Pesto sosunun üzerine doğranmış domatesleri serpin.",
+        "ingredients": [
+          "domates",
+          "pesto"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 4,
+        "step": "Üstüne ufalanmış keçi peyniri serpin",
+        "ingredients": [
+          "keçi peyniri"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 5,
+        "step": "Pizza kabuğunun kenarları kahverengileşene kadar fırında 12-15 dakika pişirin.",
+        "ingredients": [
+          "hazırlanmış pizza kabuğu"
+        ],
+        "equipment": [
+          "fırın"
+        ]
+      },
+      {
+        "number": 6,
+        "step": "Takozlar halinde kesin ve servis yapın",
+        "ingredients": [],
+        "equipment": []
+      }
+    ],
+    "label": "Önbellek tarif",
+    "detail": "2/4 malzeme uyumu",
+    "show_missing": false
+  },
+  {
+    "id": 646545,
+    "name": "Kalp Şeklinde Yumurta ve Peynirli Nibbles",
+    "score": 62,
+    "calories": 212.16,
+    "protein": 12.67,
+    "carbohydrates": 13.26,
+    "fat": 12.28,
+    "used": 2,
+    "total": 4,
+    "match_ratio": 0.5,
+    "missing": [
+      "amerikan peyniri",
+      "kalp şeklinde kurabiye kesici"
+    ],
+    "ingredients": [
+      "yumurtalar",
+      "tahıllı kekler",
+      "amerikan peyniri",
+      "kalp şeklinde kurabiye kesici"
+    ],
+    "ingredient_details": [
+      "8 büyük organik yumurta",
+      "8 dilim yağı azaltılmış Amerikan Peyniri",
+      "4 Tam Tahıllı Hafif İngiliz Muffinleri bölünmüş",
+      "3 inçlik kalp şeklinde kurabiye kesici"
+    ],
+    "image": "https://img.spoonacular.com/recipes/646545-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/V776N2B6/heart-shaped-egg-cheese-nibbles",
+    "ready_in_minutes": 45,
+    "preparation_minutes": null,
+    "cooking_minutes": null,
+    "servings": 8,
+    "instructions": "1.)  Melt butter in a large sprayed skillet over medium-high heat with butter and toast English Muffins on a large baking tray in the oven.\n2.)  While muffins are toasting crack eggs gently into a mixing bowl and do not whisk.  Pour eggs into greased pan and let cook until set.\n3.)  Slide the eggs onto a clean surface and using your cookie cutter cut out the heart shape around the yolk.\n4.)  Place a piece a piece of cheese on top of the toasted English muffin along with egg cut-outs. SERVE & ENJOY!!!\nNic's Tips - If you would like the eggs more cooked, place the open-faced sandwich back in the oven on your baking sheet for a couple of minutes before serving.",
+    "analyzed_steps": [
+      {
+        "number": 1,
+        "step": ") Tereyağını geniş bir tavada orta-yüksek ateşte eritin ve İngiliz Muffinlerini fırında büyük bir fırın tepsisinde kızartın.",
+        "ingredients": [
+          "İngiliz çöreği",
+          "tereyağı",
+          "sandviç ekmeği"
+        ],
+        "equipment": [
+          "fırın tepsisi",
+          "fırın"
+        ]
+      },
+      {
+        "number": 2,
+        "step": ") Muffinler kızarırken yumurtaları karıştırma kabına yavaşça kırın ve çırpmayın.",
+        "ingredients": [
+          "yumurta"
+        ],
+        "equipment": [
+          "karıştırma kabı",
+          "hızla çıkarmak"
+        ]
+      },
+      {
+        "number": 3,
+        "step": "Yumurtaları yağlanmış tavaya dökün ve pişene kadar pişirin.",
+        "ingredients": [
+          "yumurta"
+        ],
+        "equipment": [
+          "tava"
+        ]
+      },
+      {
+        "number": 4,
+        "step": ") Yumurtaları temiz bir yüzeye kaydırın ve kurabiye kesicinizi kullanarak yumurta sarısının etrafındaki kalp şeklini kesin.",
+        "ingredients": [
+          "Çerezler",
+          "yumurta",
+          "yumurta sarısı"
+        ],
+        "equipment": [
+          "kurabiye kesici"
+        ]
+      },
+      {
+        "number": 5,
+        "step": "Kızarmış İngiliz çöreğinin üzerine, kesilmiş yumurtalarla birlikte bir parça peynir koyun. HİZMET VERİN VE KEYFİNİ ÇIKARIN!!!",
+        "ingredients": [
+          "İngiliz çöreği",
+          "peynir",
+          "yumurta"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 6,
+        "step": "Nic'in İpuçları - Yumurtaların daha fazla pişmesini istiyorsanız, açık yüzlü sandviçi servis yapmadan önce birkaç dakika fırın tepsisindeki fırına geri koyun.",
+        "ingredients": [
+          "yumurta"
+        ],
+        "equipment": [
+          "fırın tepsisi",
+          "fırın"
+        ]
+      }
+    ],
+    "label": "Önbellek tarif",
+    "detail": "2/4 malzeme uyumu",
+    "show_missing": false
+  },
+  {
+    "id": 1747693,
+    "name": "Temel Düşük Karbonhidratlı Kahvaltınız",
+    "score": 44,
+    "calories": 510.32,
+    "protein": 20.65,
+    "carbohydrates": 15.39,
+    "fat": 41.96,
+    "used": 2,
+    "total": 4,
+    "match_ratio": 0.5,
+    "missing": [
+      "kirkland imzalı pastırma",
+      "çilekler"
+    ],
+    "ingredients": [
+      "yumurtalar",
+      "avokado",
+      "kirkland imzalı pastırma",
+      "çilekler"
+    ],
+    "ingredient_details": [
+      "2 büyük yumurta",
+      "2 şerit Kirkland İmzalı Tam Pişmiş Pastırma",
+      "1/2 avokado",
+      "1/2 bardak çilek"
+    ],
+    "image": "https://img.spoonacular.com/recipes/1747693-556x370.jpg",
+    "source_url": "https://supersimplelowcarb.com/blogs/low-carb-recipes/your-basic-low-carb-breakfast",
+    "ready_in_minutes": 7,
+    "preparation_minutes": 2,
+    "cooking_minutes": 5,
+    "servings": 1,
+    "instructions": "<ol><li>Cook 2 eggs to any style of your liking </li><li>Microwave 2 strips of Kirkland Signature Fully-Cooked Bacon to your desired level of crispiness</li><li>Slice the avocado in half and scoop out the insides </li><li>Slice strawberries into 1/2 measuring cup </li><li>Enjoy!</li></ol>",
+    "analyzed_steps": [
+      {
+        "number": 1,
+        "step": "2 yumurtayı istediğiniz tarzda pişirin Mikrodalgada 2 şerit Kirkland Signature Tam Pişmiş Pastırma istediğiniz gevreklik seviyesine kadar pişirin",
+        "ingredients": [
+          "pişmiş pastırma",
+          "yumurta"
+        ],
+        "equipment": [
+          "mikrodalga"
+        ]
+      },
+      {
+        "number": 2,
+        "step": "Avokado'yu ikiye bölün ve içini çıkarın Çilekleri 1/2 ölçü kabına dilimleyin Afiyet olsun!",
+        "ingredients": [
+          "çilekler",
+          "avokado"
+        ],
+        "equipment": [
+          "ölçüm kabı"
+        ]
+      }
+    ],
+    "label": "Önbellek tarif",
+    "detail": "2/4 malzeme uyumu",
+    "show_missing": false
+  },
+  {
+    "id": 633167,
+    "name": "Avokado Domates ve Mozzarella Panini/sandviçler",
+    "score": 37,
+    "calories": 506.41,
+    "protein": 17.98,
+    "carbohydrates": 71.03,
+    "fat": 17.67,
+    "used": 2,
+    "total": 4,
+    "match_ratio": 0.5,
+    "missing": [
+      "mozarella",
+      "tereyağı"
+    ],
+    "ingredients": [
+      "avokado",
+      "ekmek",
+      "mozarella",
+      "tereyağı"
+    ],
+    "ingredient_details": [
+      "1 dilimlenmiş olgun avokado",
+      "8 dilim fransız ekmeği",
+      "1/2 bardak rendelenmiş mozzarella peyniri",
+      "panininin dışı için tereyağı",
+      "1 ince dilimlenmiş domates",
+      "1 ince dilimlenmiş domates"
+    ],
+    "image": "https://img.spoonacular.com/recipes/633167-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/5D3FD6GZ/avocado-tomato-mozzarella-paninisandwiches",
+    "ready_in_minutes": 45,
+    "preparation_minutes": null,
+    "cooking_minutes": null,
+    "servings": 4,
+    "instructions": "Top 4 slices of bread with a layer of mozzarella, tomato, avocado slices and another layer of mozzarella.\nSpread a little butter on both outsides of the sandwiches and grill until bread is toasted and cheese is melted.\nServe warm and enjoy!",
+    "analyzed_steps": [
+      {
+        "number": 1,
+        "step": "Üstte 4 dilim ekmek, bir kat mozzarella peyniri, domates, avokado dilimleri ve bir kat daha mozzarella peyniri.",
+        "ingredients": [
+          "avokado dilimleri",
+          "mozarella",
+          "domates",
+          "ekmek"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 2,
+        "step": "Sandviçlerin her iki tarafına da biraz tereyağı sürün ve ekmek kızarıp peynir eriyene kadar ızgarada pişirin.",
+        "ingredients": [
+          "tereyağı",
+          "peynir",
+          "yaymak",
+          "ekmek"
+        ],
+        "equipment": [
+          "ızgara"
+        ]
+      },
+      {
+        "number": 3,
+        "step": "Sıcak servis yapın ve tadını çıkarın!",
+        "ingredients": [],
+        "equipment": []
+      }
+    ],
+    "label": "Önbellek tarif",
+    "detail": "2/4 malzeme uyumu",
+    "show_missing": false
+  },
+  {
+    "id": 633165,
+    "name": "Avokado Domates & Mozzarella Panini",
+    "score": 37,
+    "calories": 506.41,
+    "protein": 17.98,
+    "carbohydrates": 71.03,
+    "fat": 17.67,
+    "used": 2,
+    "total": 4,
+    "match_ratio": 0.5,
+    "missing": [
+      "mozarella",
+      "tereyağı"
+    ],
+    "ingredients": [
+      "avokado",
+      "ekmek",
+      "mozarella",
+      "tereyağı"
+    ],
+    "ingredient_details": [
+      "1 dilimlenmiş olgun avokado",
+      "8 dilim fransız ekmeği",
+      "1/2 bardak rendelenmiş mozzarella peyniri",
+      "panininin dışı için tereyağı",
+      "1 ince dilimlenmiş domates",
+      "1 ince dilimlenmiş domates"
+    ],
+    "image": "https://img.spoonacular.com/recipes/633165-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/NQ654TSM/avocado-tomato-mozzarella-panini",
+    "ready_in_minutes": 45,
+    "preparation_minutes": null,
+    "cooking_minutes": null,
+    "servings": 4,
+    "instructions": "Top 4 slices of bread with a layer of mozzarella, tomato, avocado slices and another layer of mozzarella.\nSpread a little butter on both outsides of the sandwiches and grill until bread is toasted and cheese is melted.\nServe warm and enjoy!",
+    "analyzed_steps": [
+      {
+        "number": 1,
+        "step": "Üstte 4 dilim ekmek, bir kat mozzarella peyniri, domates, avokado dilimleri ve bir kat daha mozzarella peyniri.",
+        "ingredients": [
+          "avokado dilimleri",
+          "mozarella",
+          "domates",
+          "ekmek"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 2,
+        "step": "Sandviçlerin her iki tarafına da biraz tereyağı sürün ve ekmek kızarıp peynir eriyene kadar ızgarada pişirin.",
+        "ingredients": [
+          "tereyağı",
+          "peynir",
+          "yaymak",
+          "ekmek"
+        ],
+        "equipment": [
+          "ızgara"
+        ]
+      },
+      {
+        "number": 3,
+        "step": "Sıcak servis yapın ve tadını çıkarın!",
+        "ingredients": [],
+        "equipment": []
+      }
+    ],
+    "label": "Önbellek tarif",
+    "detail": "2/4 malzeme uyumu",
+    "show_missing": false
+  }
+]

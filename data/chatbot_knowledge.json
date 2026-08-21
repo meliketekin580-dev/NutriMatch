@@ -1,0 +1,22 @@
+{
+  "alternatives": {
+    "kinoa": "bulgur, esmer pirinç veya karabuğday",
+    "tavuk": "hindi eti, tofu veya nohut",
+    "peynir": "lor peyniri, yoğurt veya avokado",
+    "yoğurt": "kefir veya ayran",
+    "yumurta": "tofu veya nohut ezmesi",
+    "süt": "kefir veya şekersiz bitkisel süt",
+    "pirinç": "bulgur, kinoa veya karabuğday",
+    "makarna": "tam buğday makarna, erişte veya kabak",
+    "bal": "pekmez veya hurma özü",
+    "limon": "sirke veya nar ekşisi",
+    "tereyağı": "zeytinyağı veya avokado yağı",
+    "nohut": "mercimek veya kuru fasulye"
+    ,"karides": "tavuk, balık veya tofu"
+  },
+  "tips": {
+    "kilo verme": "Porsiyonu küçültüp sebze miktarını artırabilirsin. Kızartma yerine fırın veya ızgara tercih et.",
+    "kas yapma": "Tarife yoğurt, yumurta, bakliyat veya yağsız et gibi protein kaynakları ekleyebilirsin.",
+    "dengeli beslenme": "Tabağın yarısını sebze, dörtte birini protein, dörtte birini kompleks karbonhidrat yapmaya çalış."
+  }
+}
