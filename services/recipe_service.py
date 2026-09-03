@@ -1,3 +1,11 @@
+"""Yerel tarifleri ve Spoonacular API sonuçlarını tek biçimde sunan servis.
+
+Tarif arama akışı önce projedeki JSON kataloglarını kullanır; çevrim içi API
+uygunsa sonuçları getirip yerel kataloğa ekleyebilir. Bu dosya malzeme uyumu,
+besin hedefi filtresi, görsel düzeltmeleri ve API cevaplarının kartlarda
+kullanılacak ortak sözlük biçimine dönüşmesini yönetir.
+"""
+
 from pathlib import Path
 from typing import Any
 import json
@@ -9,13 +17,23 @@ from services.translator import translate_to_english, translate_to_turkish
 from utils.scoring import calculate_recipe_score, is_recipe_suitable_for_goal
 
 
+# Spoonacular çağrılarının ortak temel adresi ve HTTP istekleri için üst süre sınırı.
 BASE_URL = "https://api.spoonacular.com"
 REQUEST_TIMEOUT = 15
+# Yerel JSON dosyaları API kotası bittiğinde de tarif akışının çalışmasını sağlar.
 LOCAL_CATALOG = Path(__file__).resolve().parent.parent / "data" / "recipes.json"
 LOCAL_EXTRA_CATALOG = Path(__file__).resolve().parent.parent / "data" / "recipes_extra.json"
 LOCAL_INGREDIENTS = Path(__file__).resolve().parent.parent / "data" / "recipe_ingredients.json"
-LOCAL_EXTRA_INGREDIENTS = Path(__file__).resolve().parent.parent / "data" / "recipe_ingredients_extra.json"
 LOCAL_IMAGE_OVERRIDES = Path(__file__).resolve().parent.parent / "data" / "recipe_image_overrides.json"
+
+# Ana sayfadaki alan bir "rastgele popüler" listesi değil, daha güvenli bir
+# sağlıklı ana yemek vitrini olmalı. Spoonacular'ın popülerlik sıralamasında
+# zaman zaman tatlı, kanat veya yoğun soslu tarifler de yer alabiliyor.
+HOME_RECIPE_EXCLUSIONS = (
+    "cannoli", "ice cream", "dondurma", "chocolate", "çikolata", "cake",
+    "cookie", "brownie", "cupcake", "dessert", "tatlı", "wing", "kanat",
+    "deep fried", "fried", "kızarmış",
+)
 
 
 class RecipeServiceError(Exception):
@@ -27,9 +45,19 @@ def rank_recipe_candidates(
     goal: str,
     limit: int = 5,
 ) -> list[dict[str, Any]]:
-    """Tüm kaynaklardan gelen tarifleri aynı kalite kurallarıyla doğrula ve sırala."""
+    """Tarif adaylarını hedef ve malzeme uyumuna göre filtreleyip sıralar.
+
+    Args:
+        recipes: Yerel veya API kaynağından gelen tarif sözlükleri.
+        goal: Seçili beslenme hedefi.
+        limit: Döndürülecek en yüksek tarif sayısı.
+
+    Returns:
+        list[dict[str, Any]]: Tekilleştirilmiş ve uygunluk sırasına konmuş tarifler.
+    """
     unique: list[dict[str, Any]] = []
     seen: set[str] = set()
+    # Tekrar eden, hedefe uymayan veya yetersiz malzeme eşleşmesi olan adaylar elenir.
     for recipe in recipes:
         name = str(recipe.get("name", "")).strip()
         identity = name.casefold() or str(recipe.get("id", "")).strip().casefold()
@@ -63,12 +91,21 @@ def rank_recipe_candidates(
 
 
 def load_local_recipes() -> list[dict[str, Any]]:
+    """Yerel tarif kataloglarını okuyup görsel düzeltmeleriyle tekilleştirir.
+
+    Args:
+        Bu fonksiyon değer almaz.
+
+    Returns:
+        list[dict[str, Any]]: Yerel ve ek katalogdan gelen benzersiz tarifler.
+    """
     try:
         with LOCAL_CATALOG.open(encoding="utf-8") as file:
             data = json.load(file)
         if not isinstance(data, list):
             return []
         try:
+            # Varsa ek katalogdaki tarifler ana listeye eklenir.
             with LOCAL_EXTRA_CATALOG.open(encoding="utf-8") as file:
                 extra = json.load(file)
             if isinstance(extra, list):
@@ -82,9 +119,11 @@ def load_local_recipes() -> list[dict[str, Any]]:
                 image_overrides = {}
         except (OSError, ValueError):
             image_overrides = {}
+        # Tarif adına ait özel görseller varsa katalog görselinin üzerine yazılır.
         for recipe in data:
-            if recipe.get("name") in image_overrides:
-                recipe["image"] = image_overrides[recipe["name"]]
+            override_image = image_overrides.get(recipe.get("name"))
+            if str(override_image or "").strip():
+                recipe["image"] = override_image
         # Eski önbellek/katalog kayıtlarında aynı tarif birden fazla bulunabilir.
         # Tarif adı aynıysa bunu tek tarif kabul et.
         unique: list[dict[str, Any]] = []
@@ -101,27 +140,55 @@ def load_local_recipes() -> list[dict[str, Any]]:
         return []
 
 
+def merge_ingredient_maps(
+    primary: dict[str, list[str]],
+    extra: dict[str, list[str]],
+) -> dict[str, list[str]]:
+    """İki malzeme sözlüğünü veri kaybetmeden birleştirir.
+
+    Args:
+        primary: Temel tarif-malzeme eşlemesi.
+        extra: Aynı tariflerde öncelikli kabul edilen güncel eşleme.
+
+    Returns:
+        dict[str, list[str]]: Birleştirilmiş tarif-malzeme sözlüğü.
+    """
+    merged = dict(primary)
+    merged.update(extra)
+    return merged
+
+
 def load_local_ingredients() -> dict[str, list[str]]:
+    """Tek yerel JSON dosyasından tariflerin malzeme listelerini okur.
+
+    Args:
+        Bu fonksiyon değer almaz.
+
+    Returns:
+        dict[str, list[str]]: Tarif adına karşılık malzeme listesi veya boş sözlük.
+    """
     try:
         with LOCAL_INGREDIENTS.open(encoding="utf-8") as file:
             data = json.load(file)
         if not isinstance(data, dict):
             return {}
-        try:
-            with LOCAL_EXTRA_INGREDIENTS.open(encoding="utf-8") as file:
-                extra = json.load(file)
-            if isinstance(extra, dict):
-                data.update(extra)
-        except (OSError, ValueError):
-            pass
         return data
     except (OSError, ValueError):
         return {}
 
 
 def save_recipes_to_local(recipes: list[dict[str, Any]]) -> None:
+    """API'den gelen yeni tarifleri yerel katalogya önbellek olarak kaydeder.
+
+    Args:
+        recipes: Kaydedilecek tarif sözlükleri.
+
+    Returns:
+        None: Tarifler yerel JSON'a yazılır; yazma hatası değer döndürmez.
+    """
     current = load_local_recipes()
     known = {str(item.get("id") or item.get("name", "")).lower() for item in current}
+    # Kimliği daha önce görülmeyen API tarifleri mevcut kataloğa eklenir.
     for recipe in recipes:
         identity = str(recipe.get("id") or recipe.get("name", "")).lower()
         if identity and identity not in known:
@@ -139,6 +206,15 @@ def save_recipes_to_local(recipes: list[dict[str, Any]]) -> None:
 
 
 def search_local_recipes(ingredients: list[str], goal: str) -> list[dict[str, Any]]:
+    """Yerel tariflerde malzeme eşleşmesi arayıp hedefe göre sonuç döndürür.
+
+    Args:
+        ingredients: Kullanıcının verdiği malzeme adları.
+        goal: Seçili beslenme hedefi.
+
+    Returns:
+        list[dict[str, Any]]: En az yüzde kırk malzeme uyumuna sahip tarifler.
+    """
     aliases = {"kıyma": "et", "dana kıyma": "et", "zeytinyağı": "zeytinyağı", "domates": "domates"}
     terms = {aliases.get(item.strip().lower(), item.strip().lower()) for item in ingredients if item.strip()}
     # Labne, tarif eşleştirmesinde peynir grubunun bir üyesi olarak değerlendirilir.
@@ -168,6 +244,7 @@ def search_local_recipes(ingredients: list[str], goal: str) -> list[dict[str, An
     } | load_local_ingredients()
     matches = []
     seen_recipes: set[str] = set()
+    # Her yerel tarif için kullanıcı malzemeleriyle kesişim ve hedef uygunluğu hesaplanır.
     for recipe in load_local_recipes():
         identity = str(recipe.get("id") or recipe.get("name", "")).strip().lower()
         if identity in seen_recipes:
@@ -201,6 +278,14 @@ def search_local_recipes(ingredients: list[str], goal: str) -> list[dict[str, An
 
 
 def _api_key() -> str:
+    """Streamlit gizli ayarlarından Spoonacular API anahtarını alır.
+
+    Args:
+        Bu yardımcı fonksiyon değer almaz.
+
+    Returns:
+        str: Kullanıma hazır API anahtarı.
+    """
     try:
         key = st.secrets.get("SPOONACULAR_API_KEY", "")
     except Exception:
@@ -214,7 +299,17 @@ def _api_key() -> str:
 
 
 def _get_json(path: str, params: dict[str, Any]) -> Any:
+    """Spoonacular uç noktasından JSON yanıtı alır ve servis hatalarını dönüştürür.
+
+    Args:
+        path: API temel adresine eklenecek uç nokta yolu.
+        params: HTTP isteğine eklenecek sorgu parametreleri.
+
+    Returns:
+        Any: API'nin çözümlenmiş JSON yanıtı.
+    """
     try:
+        # Tarif servisine zaman aşımı sınırı olan GET isteği gönderilir.
         response = requests.get(
             f"{BASE_URL}{path}", params=params, timeout=REQUEST_TIMEOUT
         )
@@ -241,6 +336,14 @@ def _get_json(path: str, params: dict[str, Any]) -> Any:
 
 
 def _nutrients(detail: dict[str, Any]) -> dict[str, float]:
+    """Tarif ayrıntısından uygulamada kullanılan temel besin değerlerini çıkarır.
+
+    Args:
+        detail: Spoonacular tarif ayrıntısı sözlüğü.
+
+    Returns:
+        dict[str, float]: Kalori, protein, karbonhidrat ve yağ değerleri.
+    """
     values = {"Calories": 0.0, "Protein": 0.0, "Carbohydrates": 0.0, "Fat": 0.0}
     for nutrient in detail.get("nutrition", {}).get("nutrients", []):
         name = nutrient.get("name")
@@ -251,6 +354,15 @@ def _nutrients(detail: dict[str, Any]) -> dict[str, float]:
 
 @st.cache_data(ttl=21600, show_spinner=False)
 def get_popular_healthy_recipes() -> list[dict[str, Any]]:
+    """Ana sayfa için filtrelenmiş popüler sağlıklı tarifleri API'den alır.
+
+    Args:
+        Bu fonksiyon değer almaz.
+
+    Returns:
+        list[dict[str, Any]]: Ana sayfa kartlarına uygun tarif sözlükleri.
+    """
+    # API isteğinde ana yemek, protein ve kalori filtreleri birlikte kullanılır.
     key = _api_key()
     payload = _get_json(
         "/recipes/complexSearch",
@@ -260,8 +372,9 @@ def get_popular_healthy_recipes() -> list[dict[str, Any]]:
             "sort": "popularity",
             "addRecipeNutrition": True,
             "instructionsRequired": True,
-            "minProtein": 8,
-            "maxCalories": 650,
+            "type": "main course",
+            "minProtein": 12,
+            "maxCalories": 550,
         },
     )
 
@@ -269,15 +382,18 @@ def get_popular_healthy_recipes() -> list[dict[str, Any]]:
         raise RecipeServiceError("Popüler tarifler alınırken beklenmeyen bir cevap geldi.")
 
     recipes: list[dict[str, Any]] = []
+    # Tatlı veya kızartma gibi vitrin dışı tarifler başlıklarına göre elenir.
     for item in payload["results"]:
-        if not item.get("title"):
+        title = str(item.get("title", "")).strip()
+        title_key = title.casefold()
+        if not title or any(term in title_key for term in HOME_RECIPE_EXCLUSIONS):
             continue
 
         nutrition = _nutrients(item)
         recipes.append(
             {
                 "id": item.get("id"),
-                "name": translate_to_turkish(item["title"]),
+                "name": translate_to_turkish(title),
                 "score": calculate_recipe_score(
                     nutrition["Calories"],
                     nutrition["Protein"],
@@ -307,6 +423,16 @@ def get_popular_healthy_recipes() -> list[dict[str, Any]]:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def search_recipes(ingredients: list[str], goal: str) -> list[dict[str, Any]]:
+    """Spoonacular'da malzemelere göre arama yapıp hedefe uygun tarifler üretir.
+
+    Args:
+        ingredients: Kullanıcının Türkçe malzeme listesi.
+        goal: Seçili beslenme hedefi.
+
+    Returns:
+        list[dict[str, Any]]: Besin, malzeme ve hazırlık bilgileriyle tarif listesi.
+    """
+    # API'nin arama uç noktası için malzeme adları İngilizceye çevrilir.
     key = _api_key()
     english_ingredients = [translate_to_english(item) for item in ingredients]
     matches = _get_json(
@@ -323,6 +449,7 @@ def search_recipes(ingredients: list[str], goal: str) -> list[dict[str, Any]]:
         raise RecipeServiceError("Tarif servisinden beklenmeyen bir cevap alındı.")
 
     results: list[dict[str, Any]] = []
+    # Her arama sonucu için ayrıntılı tarif ve besin verisi ayrıca istenir.
     for match in matches:
         detail = _get_json(
             f"/recipes/{match.get('id')}/information",
@@ -365,6 +492,7 @@ def search_recipes(ingredients: list[str], goal: str) -> list[dict[str, Any]]:
             if item.get("original")
         ]
         analyzed_steps: list[dict[str, Any]] = []
+        # API'nin adım grupları, arayüzde gösterilecek tek adım listesine dönüştürülür.
         for section in detail.get("analyzedInstructions", []):
             for step in section.get("steps", []):
                 analyzed_steps.append(

@@ -1048,5 +1048,385 @@
     "label": "Önbellek tarif",
     "detail": "2/4 malzeme uyumu",
     "show_missing": false
+  },
+  {
+    "id": 641890,
+    "name": "Kolay Peynirli Çırpılmış Yumurta",
+    "score": 74,
+    "calories": 246.26,
+    "protein": 16.48,
+    "carbohydrates": 1.24,
+    "fat": 19.16,
+    "used": 3,
+    "total": 3,
+    "match_ratio": 0.6,
+    "missing": [],
+    "ingredients": [
+      "yumurtalar",
+      "süt",
+      "jack peyniri"
+    ],
+    "ingredient_details": [
+      "8 büyük yumurta",
+      "1/4 bardak süt veya krema",
+      "tuz ve karabiber",
+      "1/2 su bardağı rendelenmiş jack peyniri"
+    ],
+    "image": "https://img.spoonacular.com/recipes/641890-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/X5JCHLYL/easy-cheesy-scrambled-eggs",
+    "ready_in_minutes": 45,
+    "preparation_minutes": null,
+    "cooking_minutes": null,
+    "servings": 4,
+    "instructions": "Scramble eggs with milk or cream and some salt and pepper.\nCook in a nonstick skillet over medium heat, stirring to lift the cooked eggs from the bottom of the pan as they cook.\nWhen the eggs are just about cooked, toss in jack cheese and cook for about 1-2 minutes more just to melt the cheese.\nServe as is, over toast, or in a tortilla.",
+    "analyzed_steps": [
+      {
+        "number": 1,
+        "step": "Yumurtaları süt veya krema ve biraz tuz ve karabiberle çırpın.",
+        "ingredients": [
+          "tuz ve karabiber",
+          "krem",
+          "yumurta",
+          "süt"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 2,
+        "step": "Yapışmaz bir tavada orta ateşte pişirin, pişmiş yumurtaları pişerken tavanın altından kaldıracak şekilde karıştırın.",
+        "ingredients": [
+          "yumurta"
+        ],
+        "equipment": [
+          "tava"
+        ]
+      },
+      {
+        "number": 3,
+        "step": "Yumurtalar pişmek üzereyken, kaşar peynirini ekleyin ve peynirin erimesi için 1-2 dakika daha pişirin.",
+        "ingredients": [
+          "monterey jack peyniri",
+          "peynir",
+          "yumurta"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 4,
+        "step": "Olduğu gibi, kızarmış ekmek üzerinde veya tortillada servis yapın.",
+        "ingredients": [
+          "tortilla",
+          "sandviç ekmeği"
+        ],
+        "equipment": []
+      }
+    ],
+    "label": "Önbellek tarif",
+    "detail": "3/3 malzeme uyumu",
+    "show_missing": false
+  },
+  {
+    "id": 661447,
+    "name": "Kare Baharatlı Yumurta",
+    "score": 71,
+    "calories": 211.6,
+    "protein": 18.52,
+    "carbohydrates": 0.07,
+    "fat": 14.7,
+    "used": 2,
+    "total": 3,
+    "match_ratio": 0.4,
+    "missing": [
+      "jambon"
+    ],
+    "ingredients": [
+      "yumurtalar",
+      "krem peynir",
+      "jambon"
+    ],
+    "ingredient_details": [
+      "Sert haşlanmış yumurta",
+      "Krem peynir",
+      "Jambon"
+    ],
+    "image": "https://img.spoonacular.com/recipes/661447-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/2Y8X7NKY/square-deviled-eggs",
+    "ready_in_minutes": 45,
+    "preparation_minutes": null,
+    "cooking_minutes": null,
+    "servings": 6,
+    "instructions": "To make square hard boiled eggs, you'll need an Egg cuber or Square Egg Press. (See note in About section on where to purchase)\nFirst boil your eggs, then slide the egg inside the press and screw the top down so it pushes the egg into the corners.\nLet the egg cool and remove it from the mold. For better results use medium size eggs.\nIf you intend to prepare this for a party, I suggest you buy several cubers, this way you can boil and chill several eggs at a time, or it will take you a lot of time.\nTo prepare hard boiled eggs, place eggs in a saucepan, cover with cold water and bring to a boil over medium heat. As soon as the water comes to a full boil, let the eggs boil for 5 minutes, and then remove from heat and let stand covered in hot water 10 minutes .\nFilling is made with cream cheese, ham and egg yolk, it tastes very soft, it is ideal for kids.",
+    "analyzed_steps": [
+      {
+        "number": 1,
+        "step": "Kare şeklinde sert haşlanmış yumurta yapmak için bir Yumurta küpüne veya Kare Yumurta Presine ihtiyacınız olacaktır. (Nereden satın alınacağına ilişkin Hakkında bölümündeki nota bakın)",
+        "ingredients": [
+          "sert haşlanmış yumurta",
+          "yumurta"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 2,
+        "step": "Önce yumurtalarınızı haşlayın, ardından yumurtayı presin içine kaydırın ve üst kısmını aşağı doğru vidalayın, böylece yumurta köşelere doğru itilir.",
+        "ingredients": [
+          "yumurta"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 3,
+        "step": "Yumurtayı soğumaya bırakın ve kalıptan çıkarın. Daha iyi sonuçlar için orta boy yumurta kullanın.",
+        "ingredients": [
+          "yumurta"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 4,
+        "step": "Bunu bir parti için hazırlamak istiyorsanız, birkaç küp almanızı öneririm, bu şekilde aynı anda birkaç yumurtayı kaynatıp soğutabilirsiniz, yoksa çok zamanınızı alır.",
+        "ingredients": [
+          "yumurta"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 5,
+        "step": "Sert haşlanmış yumurta hazırlamak için yumurtaları bir tencereye koyun, üzerini soğuk suyla örtün ve orta ateşte kaynatın. Su kaynayınca yumurtaları 5 dakika kaynatıp ocaktan alıp sıcak suyun altında 10 dakika bekletin.",
+        "ingredients": [
+          "sert haşlanmış yumurta",
+          "su",
+          "yumurta"
+        ],
+        "equipment": [
+          "sos tavası"
+        ]
+      },
+      {
+        "number": 6,
+        "step": "İçi krem ​​peynir, jambon ve yumurta sarısı ile yapılıyor, tadı çok yumuşak, çocuklar için ideal.",
+        "ingredients": [
+          "krem peynir",
+          "yumurta sarısı",
+          "jambon"
+        ],
+        "equipment": []
+      }
+    ],
+    "label": "Önbellek tarif",
+    "detail": "2/3 malzeme uyumu",
+    "show_missing": false
+  },
+  {
+    "id": 634862,
+    "name": "Berry İyi Brie",
+    "score": 66,
+    "calories": 114.17,
+    "protein": 6.99,
+    "carbohydrates": 1.26,
+    "fat": 9.06,
+    "used": 2,
+    "total": 4,
+    "match_ratio": 0.4,
+    "missing": [
+      "tropik yiyeceklerin meyveli atıştırmalık karışımı",
+      "turta hamuru"
+    ],
+    "ingredients": [
+      "brie peyniri çarkı",
+      "yumurta",
+      "tropik yiyeceklerin meyveli atıştırmalık karışımı",
+      "turta hamuru"
+    ],
+    "ingredient_details": [
+      "2/3 bardak Tropical Food'un Berry Snack Karışımı",
+      "13,2 oz. Brie peyniri çarkı",
+      "1 yaprak buzdolabında pasta kabuğu hamuru",
+      "1 yumurta, çırpılmış"
+    ],
+    "image": "https://img.spoonacular.com/recipes/634862-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/RQZRKQ4L/berry-good-brie",
+    "ready_in_minutes": 45,
+    "preparation_minutes": null,
+    "cooking_minutes": null,
+    "servings": 12,
+    "instructions": "Preheat oven to 375 degrees.\nRoll out pie crust dough slightly to thin a bit.\nSlice brie cheese wheel in half, so that its in two rounds.\nScoop out some of the cheese from one of the rounds and fill that 'pocket with Tropical Foods Berry Good.\nCombine the two rounds together and place in the middle of the pie crust dough.\nPull the dough up around the cheese to fully encase.\nFlip the wheel over and cover with more dough.\nBrush with egg wash and bake for 25-35 minutes, until lightly golden.\nAllow to sit for 10 minutes, and then serve.",
+    "analyzed_steps": [
+      {
+        "number": 1,
+        "step": "Fırını 375 dereceye kadar önceden ısıtın.",
+        "ingredients": [],
+        "equipment": [
+          "fırın"
+        ]
+      },
+      {
+        "number": 2,
+        "step": "Pasta kabuğu hamurunu biraz inceltmek için hafifçe açın.",
+        "ingredients": [
+          "turta hamuru",
+          "rulo"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 3,
+        "step": "Brie peyniri tekerleğini iki tur olacak şekilde ikiye bölün.",
+        "ingredients": [
+          "brie"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 4,
+        "step": "Turtalardan birinden peynirin bir kısmını alın ve cebinizi Tropical Foods Berry Good ile doldurun.",
+        "ingredients": [
+          "peynir",
+          "meyveler"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 5,
+        "step": "İki turu bir araya getirin ve pasta kabuğu hamurunun ortasına yerleştirin.",
+        "ingredients": [
+          "turta hamuru"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 6,
+        "step": "Tamamen kaplamak için hamuru peynirin etrafından yukarı doğru çekin.",
+        "ingredients": [
+          "peynir",
+          "hamur"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 7,
+        "step": "Tekerleği ters çevirin ve daha fazla hamurla kaplayın.",
+        "ingredients": [
+          "hamur"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 8,
+        "step": "Üzerine yumurta sarısı sürün ve hafif altın rengi olana kadar 25-35 dakika pişirin.",
+        "ingredients": [
+          "yumurta"
+        ],
+        "equipment": [
+          "fırın"
+        ]
+      },
+      {
+        "number": 9,
+        "step": "10 dakika kadar bekletin ve sonra servis yapın.",
+        "ingredients": [],
+        "equipment": []
+      }
+    ],
+    "label": "Önbellek tarif",
+    "detail": "2/4 malzeme uyumu",
+    "show_missing": false
+  },
+  {
+    "id": 636458,
+    "name": "Tavşan Yumurtası Çocuk Kahvaltısı",
+    "score": 60,
+    "calories": 213.02,
+    "protein": 8.0,
+    "carbohydrates": 1.08,
+    "fat": 19.36,
+    "used": 2,
+    "total": 4,
+    "match_ratio": 0.4,
+    "missing": [
+      "bacon",
+      "yaban mersini"
+    ],
+    "ingredients": [
+      "yumurtalar",
+      "hafif çedar peyniri",
+      "bacon",
+      "yaban mersini"
+    ],
+    "ingredient_details": [
+      "12 dilim pastırma",
+      "12 adet taze yaban mersini",
+      "2 ekstra büyük yumurta",
+      "2 büyük dilim hafif kaşar peyniri, ince şeritler halinde kesilmiş"
+    ],
+    "image": "https://img.spoonacular.com/recipes/636458-556x370.jpg",
+    "source_url": "https://www.foodista.com/recipe/3CWLHXBM/bunny-eggs",
+    "ready_in_minutes": 45,
+    "preparation_minutes": null,
+    "cooking_minutes": null,
+    "servings": 6,
+    "instructions": "<ol><li>Cook bacon in large skillet until crisp. Remove bacon from skillet, reserving 1 tablespoon drippings in skillet. Drain bacon on paper towels.</li><li>Add 3 eggs to reserved drippings; cover. Cook 4 to 6 minutes or until whites are opaque and completely set and yolks are beginning to thicken around edges. Remove eggs to individual serving plates; keep warm. Repeat with remaining eggs.</li><li>For each bunny, place 2 bacon strips on egg for ears. Cut cheese strips in half to create whiskers; add blueberries for eyes.</li></ol>",
+    "analyzed_steps": [
+      {
+        "number": 1,
+        "step": "Pastırmayı büyük bir tavada gevrekleşene kadar pişirin.",
+        "ingredients": [
+          "Bacon"
+        ],
+        "equipment": [
+          "tava"
+        ]
+      },
+      {
+        "number": 2,
+        "step": "Tavada 1 çorba kaşığı damlama bırakarak pastırmayı tavadan çıkarın.",
+        "ingredients": [
+          "Bacon"
+        ],
+        "equipment": [
+          "tava"
+        ]
+      },
+      {
+        "number": 3,
+        "step": "Pastırmayı kağıt havluların üzerine boşaltın.",
+        "ingredients": [
+          "Bacon"
+        ],
+        "equipment": [
+          "kağıt havlu"
+        ]
+      },
+      {
+        "number": 4,
+        "step": "Ayrılmış damlamalara 3 yumurta ekleyin; kapak. 4 ila 6 dakika veya beyazlar opaklaşıp tamamen sertleşene ve sarılar kenarlarda kalınlaşmaya başlayana kadar pişirin.",
+        "ingredients": [
+          "yumurta sarısı",
+          "yumurta"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 5,
+        "step": "Yumurtaları ayrı ayrı servis tabaklarına çıkarın; sıcak tut. Kalan yumurtalarla aynı işlemi tekrarlayın. Her tavşan için, kulakları için yumurtanın üzerine 2 pastırma şeridi yerleştirin.",
+        "ingredients": [
+          "Bacon",
+          "yumurta"
+        ],
+        "equipment": []
+      },
+      {
+        "number": 6,
+        "step": "Bıyık oluşturmak için peynir şeritlerini ikiye bölün; gözler için yaban mersini ekleyin.",
+        "ingredients": [
+          "yaban mersini",
+          "peynir"
+        ],
+        "equipment": []
+      }
+    ],
+    "label": "Önbellek tarif",
+    "detail": "2/4 malzeme uyumu",
+    "show_missing": false
   }
 ]

@@ -1,3 +1,11 @@
+"""Paketli ürün etiketini Gemini ile okuyup yapılandırılmış besin verisine çevirir.
+
+Servis yalnızca butona basılınca çağrılır. Görsel gerektiğinde küçültülür,
+Gemini'den istenen JSON temizlenir ve eksik ya da okunamayan alanlar ``None``
+olarak korunur. Böylece arayüz, tahmin edilmiş bir değeri gerçek etiket verisi
+gibi göstermek zorunda kalmaz.
+"""
+
 import base64
 import io
 import json
@@ -8,13 +16,26 @@ import requests
 import streamlit as st
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from services.ai_service import GEMINI_URL, _gemini_key
+from services.ai_service import (
+    GEMINI_AUTH_MESSAGE,
+    GEMINI_DEFAULT_ERROR_MESSAGE,
+    GEMINI_URL,
+    _gemini_key,
+    gemini_error_message,
+)
 
 
 class NutritionLabelError(RuntimeError):
     """Besin etiketi analizinde kullanıcıya gösterilebilen kontrollü hata."""
 
 
+LABEL_NOT_FOUND_MESSAGE = (
+    "Bu görselde okunabilir bir besin etiketi bulunamadı. "
+    "Yemek fotoğrafı için Tabağımı Analiz Et bölümünü kullanın."
+)
+
+
+# Arayüzün gösterebileceği alanlar; etikette bulunmayanlar boş/None kalabilir.
 LABEL_FIELDS = (
     "product_name",
     "basis_type",
@@ -56,7 +77,15 @@ LIST_FIELDS = {"unreadable_fields", "positive_points", "attention_points"}
 
 
 def resize_label_image(image_bytes: bytes, max_size: int = 1600) -> tuple[bytes, str]:
-    """Görüntüyü oranını bozmadan küçültür ve API için JPEG'e dönüştürür."""
+    """Görüntüyü oranını koruyarak küçültür ve API için JPEG'e dönüştürür.
+
+    Args:
+        image_bytes: Yüklenen görselin ham baytları.
+        max_size: Uzun kenar için uygulanacak en büyük piksel değeri.
+
+    Returns:
+        tuple[bytes, str]: Küçültülmüş görsel baytları ve MIME türü.
+    """
     try:
         with Image.open(io.BytesIO(image_bytes)) as image:
             image = ImageOps.exif_transpose(image)
@@ -78,6 +107,14 @@ def resize_label_image(image_bytes: bytes, max_size: int = 1600) -> tuple[bytes,
 
 
 def _number_or_none(value: Any) -> float | None:
+    """Verilen değeri mümkünse sayıya çevirir, çevrilemezse None döndürür.
+
+    Args:
+        value: JSON'dan gelen sayı veya metin değer.
+
+    Returns:
+        float | None: Geçerli sayısal değer ya da None.
+    """
     if value is None or isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
@@ -88,7 +125,14 @@ def _number_or_none(value: Any) -> float | None:
 
 
 def parse_label_response(raw_text: str) -> dict[str, Any]:
-    """Gemini JSON çıktısını izin verilen alanlarla güvenli biçimde doğrular."""
+    """Gemini JSON çıktısını izin verilen alanlarla güvenli biçimde doğrular.
+
+    Args:
+        raw_text: Gemini'den gelen ham JSON metni.
+
+    Returns:
+        dict[str, Any]: Etiket alanları standartlaştırılmış sonuç sözlüğü.
+    """
     cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", str(raw_text).strip(), flags=re.IGNORECASE)
     try:
         parsed = json.loads(cleaned)
@@ -96,8 +140,14 @@ def parse_label_response(raw_text: str) -> dict[str, Any]:
         raise NutritionLabelError("Yapay zekâ geçerli bir analiz sonucu döndürmedi. Fotoğrafı yeniden çekip deneyebilirsin.") from exc
     if not isinstance(parsed, dict):
         raise NutritionLabelError("Besin etiketi sonucu beklenen biçimde alınamadı.")
+    # Besin tablosu bulunmayan yemek fotoğraflarında üretilmiş tahmini değerleri
+    # sonuç olarak kabul etme. Bu alan Gemini şemasında zorunludur.
+    if parsed.get("has_nutrition_label") is not True:
+        raise NutritionLabelError(LABEL_NOT_FOUND_MESSAGE)
 
+    # Önce tüm beklenen alanlar oluşturulur; eksik alanlar None veya boş liste kalır.
     result: dict[str, Any] = {field: None for field in LABEL_FIELDS}
+    result["has_nutrition_label"] = True
     for field in LABEL_FIELDS:
         value = parsed.get(field)
         if field in NUMERIC_FIELDS:
@@ -117,10 +167,19 @@ def parse_label_response(raw_text: str) -> dict[str, Any]:
 
 
 def _response_schema() -> dict[str, Any]:
+    """Gemini'nin döndürmesi beklenen besin etiketi JSON şemasını oluşturur.
+
+    Args:
+        Bu yardımcı fonksiyon değer almaz.
+
+    Returns:
+        dict[str, Any]: Gemini structured output için şema sözlüğü.
+    """
     nullable_number = {"type": "NUMBER", "nullable": True}
     nullable_string = {"type": "STRING", "nullable": True}
     string_list = {"type": "ARRAY", "items": {"type": "STRING"}}
     properties: dict[str, Any] = {
+        "has_nutrition_label": {"type": "BOOLEAN"},
         "product_name": nullable_string,
         "basis_type": {"type": "STRING", "enum": ["100 g", "100 ml", "porsiyon", "bilinmiyor"]},
         "detected_text_summary": nullable_string,
@@ -131,25 +190,40 @@ def _response_schema() -> dict[str, Any]:
     }
     for field in NUMERIC_FIELDS:
         properties[field] = nullable_number
-    return {"type": "OBJECT", "properties": properties, "required": list(LABEL_FIELDS)}
+    return {
+        "type": "OBJECT",
+        "properties": properties,
+        "required": ["has_nutrition_label", *LABEL_FIELDS],
+    }
 
 
 def _instruction(goal: str) -> str:
+    """Etiket analizi isteğinde kullanılacak Gemini yönergesini üretir.
+
+    Args:
+        goal: Kullanıcının seçili beslenme hedefi.
+
+    Returns:
+        str: Gemini'ye gönderilecek ayrıntılı talimat metni.
+    """
     return f"""
 Bir paketli ürünün besin değerleri tablosunu analiz et. Türkçe yanıt ver.
 Kullanıcının hedefi: {goal}
 
 Kurallar:
-1. Yalnızca etikette açıkça görülen değerleri oku; tahmin etme.
-2. Okunamayan veya bulunmayan alanları null yap ve adını unreadable_fields listesine ekle.
-3. 100 g, 100 ml ve porsiyon sütunlarını kesinlikle karıştırma. Çıkardığın sayılar yalnızca basis_type alanında belirttiğin aynı sütundan gelsin.
-4. Birden fazla sütun varsa hangi sütunu kullandığını basis_type ile belirt; diğer sütunları detected_text_summary içinde kısaca açıkla.
-5. Ondalık virgülü ve noktayı doğru sayıya dönüştür.
-6. kJ ile kcal değerlerini ayrı alanlara yaz.
-7. Tuz ile sodyumu birbirinin yerine kullanma.
-8. Ürün adı görünmüyorsa product_name null olsun.
-9. Fotoğraf bulanık, karanlık veya besin tablosu içermiyorsa okunamayan alanları belirt ve değerleri uydurma.
-10. Tıbbi teşhis, tedavi veya kesin sağlık iddiası üretme.
+1. Önce görselde okunabilir bir besin değerleri etiketi veya tablosu olup olmadığını doğrula.
+2. Okunabilir bir besin tablosu varsa has_nutrition_label true; yoksa veya okunamıyorsa false döndür.
+3. has_nutrition_label false ise hiçbir besin değerini tahmin etme; tüm sayısal alanları null, liste alanlarını boş liste yap.
+4. Yalnızca etikette açıkça görülen değerleri oku; tahmin etme.
+5. Okunamayan veya bulunmayan alanları null yap ve adını unreadable_fields listesine ekle.
+6. 100 g, 100 ml ve porsiyon sütunlarını kesinlikle karıştırma. Çıkardığın sayılar yalnızca basis_type alanında belirttiğin aynı sütundan gelsin.
+7. Birden fazla sütun varsa hangi sütunu kullandığını basis_type ile belirt; diğer sütunları detected_text_summary içinde kısaca açıkla.
+8. Ondalık virgülü ve noktayı doğru sayıya dönüştür.
+9. kJ ile kcal değerlerini ayrı alanlara yaz.
+10. Tuz ile sodyumu birbirinin yerine kullanma.
+11. Ürün adı görünmüyorsa product_name null olsun.
+12. Fotoğraf bulanık, karanlık veya besin tablosu içermiyorsa değerleri uydurma.
+13. Tıbbi teşhis, tedavi veya kesin sağlık iddiası üretme.
 
 {goal} hedefine göre kalori, porsiyon, protein, karbonhidrat, yağ, lif, şeker ve tuzu birlikte değerlendir.
 Kilo Verme hedefinde tek değere bakarak kesin iyi/kötü deme.
@@ -162,10 +236,20 @@ Yalnızca verilen JSON şemasına uygun cevap üret.
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def analyze_nutrition_label(image_bytes: bytes, mime_type: str, goal: str) -> dict[str, Any]:
-    """Gemini'ye tek istek göndererek yapılandırılmış etiket analizi döndürür."""
+    """Gemini'ye tek istek göndererek yapılandırılmış etiket analizi döndürür.
+
+    Args:
+        image_bytes: Etiket fotoğrafının ham baytları.
+        mime_type: Yüklenen görselin MIME türü.
+        goal: Kullanıcının seçili beslenme hedefi.
+
+    Returns:
+        dict[str, Any]: Doğrulanmış etiket analizi sonucu.
+    """
     api_key = _gemini_key()
     if not api_key:
-        raise NutritionLabelError("Gemini API anahtarı bulunamadı. GEMINI_API_KEY ayarını kontrol et.")
+        raise NutritionLabelError(GEMINI_AUTH_MESSAGE)
+    # Büyük görsel, API isteği öncesinde daha makul boyuta dönüştürülür.
     resized_bytes, resized_mime = resize_label_image(image_bytes)
     payload = {
         "contents": [{"parts": [
@@ -179,22 +263,27 @@ def analyze_nutrition_label(image_bytes: bytes, mime_type: str, goal: str) -> di
         },
     }
     try:
+        # Görsel ve structured output şeması Gemini'ye tek istekle gönderilir.
         response = requests.post(
             GEMINI_URL,
             headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
             json=payload,
             timeout=35,
         )
+    except requests.Timeout as exc:
+        raise NutritionLabelError(gemini_error_message(error=exc)) from exc
     except requests.RequestException as exc:
-        raise NutritionLabelError("Gemini servisine ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.") from exc
-    if response.status_code in {429, 403}:
-        raise NutritionLabelError("Gemini kotası dolmuş veya API anahtarı kullanılamıyor olabilir.")
+        logger.warning("Besin etiketi Gemini isteği başarısız (type=%s)", type(exc).__name__)
+        raise NutritionLabelError(gemini_error_message(error=exc)) from exc
     if response.status_code != 200:
-        raise NutritionLabelError("Besin etiketi şu anda analiz edilemedi. Biraz sonra tekrar dene.")
+        logger.warning("Besin etiketi Gemini isteği başarısız (status=%s)", response.status_code)
+        raise NutritionLabelError(
+            gemini_error_message(response.status_code, response_text=response.text)
+        )
     try:
         raw_text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
     except (ValueError, KeyError, IndexError, TypeError) as exc:
-        raise NutritionLabelError("Gemini'den geçerli bir analiz yanıtı alınamadı.") from exc
+        raise NutritionLabelError(GEMINI_DEFAULT_ERROR_MESSAGE) from exc
     return parse_label_response(raw_text)
 
 
@@ -204,8 +293,24 @@ def get_or_analyze_label(
     goal: str,
     analyzer: Callable[[], dict[str, Any]],
 ) -> dict[str, Any]:
-    """Aynı fotoğraf ve hedef için oturum içinde ikinci isteği engeller."""
+    """Aynı fotoğraf ve hedef için oturum içinde ikinci isteği engeller.
+
+    Args:
+        session_cache: Streamlit oturumunda tutulan sonuç önbelleği.
+        photo_hash: Yüklenen fotoğrafın içerik özeti.
+        goal: Kullanıcının seçili beslenme hedefi.
+        analyzer: Gerektiğinde gerçek analizi başlatan çağrılabilir işlev.
+
+    Returns:
+        dict[str, Any]: Önbellekteki veya yeni oluşturulmuş analiz sonucu.
+    """
+    # Fotoğraf ve hedef birlikte önbellek anahtarını oluşturur.
     cache_key = f"{photo_hash}:{goal}"
     if cache_key not in session_cache:
         session_cache[cache_key] = analyzer()
-    return session_cache[cache_key]
+    result = session_cache[cache_key]
+    # Eski oturum önbelleğinde etiket doğrulaması olmayan bir sonuç varsa gösterme.
+    if result.get("has_nutrition_label") is not True:
+        session_cache.pop(cache_key, None)
+        raise NutritionLabelError(LABEL_NOT_FOUND_MESSAGE)
+    return result

@@ -1,9 +1,18 @@
+"""Beslenme hedefine uygun YouTube videolarını arayan servis.
+
+Bu modül yalnızca hedef ve seviye bilgisini Türkçe bir arama sorgusuna çevirir,
+YouTube Data API'den en fazla üç gömülebilir video ister ve kartlarda
+kullanılacak başlık, kanal, küçük resim ile video bağlantısını döndürür.
+Arayüz, bu servisi yalnızca kullanıcı öneri butonuna bastığında çağırır.
+"""
+
 from typing import Any
 
 import requests
 import streamlit as st
 
 
+# Video arama isteklerinin gönderildiği YouTube Data API v3 uç noktası.
 YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search"
 
 
@@ -12,6 +21,14 @@ class YouTubeServiceError(RuntimeError):
 
 
 def _youtube_key() -> str:
+    """Streamlit gizli ayarlarından YouTube API anahtarını okur.
+
+    Args:
+        Bu yardımcı fonksiyon değer almaz.
+
+    Returns:
+        str: Anahtar varsa metin, okunamazsa boş metin.
+    """
     try:
         return str(st.secrets.get("YOUTUBE_API_KEY", "")).strip()
     except Exception:
@@ -19,6 +36,15 @@ def _youtube_key() -> str:
 
 
 def _build_query(goal: str, level: str) -> str:
+    """Beslenme hedefi ve seviyeden Türkçe YouTube arama sorgusu oluşturur.
+
+    Args:
+        goal: Seçili beslenme hedefi.
+        level: Kullanıcının belirlediği antrenman seviyesi.
+
+    Returns:
+        str: YouTube API'ye gönderilecek arama metni.
+    """
     level_text = f"{level.casefold()} seviye"
     queries = {
         "Kilo Verme": f"{level_text} yağ yakma kardiyo antrenmanı",
@@ -30,7 +56,15 @@ def _build_query(goal: str, level: str) -> str:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def search_youtube_videos(goal: str, level: str) -> list[dict[str, Any]]:
-    """Hedef ve seviyeye göre en fazla üç oynatılabilir Türkçe video getirir."""
+    """Hedef ve seviyeye göre en fazla üç oynatılabilir Türkçe video getirir.
+
+    Args:
+        goal: Seçili beslenme hedefi.
+        level: Kullanıcının belirlediği antrenman seviyesi.
+
+    Returns:
+        list[dict[str, Any]]: Video kimliği, başlığı, kanalı ve bağlantısını içeren liste.
+    """
     api_key = _youtube_key()
     if not api_key:
         raise YouTubeServiceError(
@@ -38,6 +72,7 @@ def search_youtube_videos(goal: str, level: str) -> list[dict[str, Any]]:
         )
 
     try:
+        # YouTube arama API'sine güvenli arama parametreleriyle istek gönderilir.
         response = requests.get(
             YOUTUBE_SEARCH_URL,
             params={
@@ -72,6 +107,7 @@ def search_youtube_videos(goal: str, level: str) -> list[dict[str, Any]]:
         raise YouTubeServiceError("YouTube'dan geçerli bir yanıt alınamadı.") from exc
 
     videos: list[dict[str, Any]] = []
+    # API yanıtındaki her geçerli video arayüzün kullanacağı sözlüğe dönüştürülür.
     for item in items:
         video_id = str(item.get("id", {}).get("videoId", "")).strip()
         snippet = item.get("snippet", {})

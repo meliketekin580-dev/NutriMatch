@@ -1,21 +1,49 @@
+"""Yüklenen tabak fotoğrafını Gemini ile analiz edip besin özetine dönüştürür.
+
+Bu dosya fotoğrafın kendisini kullanıcıya göstermeden; görseli Gemini'ye uygun
+biçime dönüştürür, dönen JSON'u güvenli şekilde temizler ve kullanıcı gram
+miktarını değiştirdiğinde API çağrısı yapmadan değerleri orantılar. Aynı
+fotoğrafın tekrar analiz edilmesini önlemek için hash ve session-state
+anahtarları da burada yönetilir.
+"""
+
 import base64
 import copy
 import hashlib
 import json
+import logging
 import re
 from typing import Any, Callable
 
 import requests
 import streamlit as st
 
-from services.ai_service import GEMINI_URL, _gemini_key
+from services.ai_service import (
+    GEMINI_AUTH_MESSAGE,
+    GEMINI_DEFAULT_ERROR_MESSAGE,
+    GEMINI_URL,
+    _gemini_key,
+    gemini_error_message,
+)
 from services.nutrition_label_service import resize_label_image
+
+
+logger = logging.getLogger(__name__)
 
 
 class MealAnalysisError(RuntimeError):
     """Tabak analizinde kullanıcıya güvenli biçimde gösterilebilen hata."""
 
 
+def _raise_for_gemini_status(status_code: int, response_text: str = "") -> None:
+    """Gemini HTTP durumunu kullanıcıya güvenli ve anlaşılır bir hataya çevirir."""
+    if status_code != 200:
+        # Yalnızca durum kodu loglanır; yanıt, anahtar ve görsel verisi yazılmaz.
+        logger.warning("Tabak analizi Gemini HTTP hatası (status=%s)", status_code)
+        raise MealAnalysisError(gemini_error_message(status_code, response_text=response_text))
+
+
+# Toplam hesaplanırken ve gram değişikliğinde birlikte işlenen besin alanları.
 NUTRIENT_FIELDS = (
     "calories_kcal",
     "protein_g",
@@ -26,6 +54,14 @@ NUTRIENT_FIELDS = (
 
 
 def _number_or_none(value: Any) -> float | None:
+    """Sayısal değeri float'a çevirir; geçersiz veya belirsiz değerde None döndürür.
+
+    Args:
+        value: JSON ya da kullanıcı düzenlemesinden gelen değer.
+
+    Returns:
+        float | None: Dönüştürülmüş sayı veya None.
+    """
     if value is None or isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
@@ -35,7 +71,14 @@ def _number_or_none(value: Any) -> float | None:
 
 
 def parse_meal_response(raw_text: str) -> dict[str, Any]:
-    """Gemini JSON çıktısını güvenli ve öngörülebilir bir yapıya dönüştürür."""
+    """Gemini JSON çıktısını güvenli ve öngörülebilir bir yapıya dönüştürür.
+
+    Args:
+        raw_text: Gemini'den gelen ham JSON metni.
+
+    Returns:
+        dict[str, Any]: Ürünleri, belirsizlikleri ve hedef yorumunu içeren analiz.
+    """
     cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", str(raw_text).strip(), flags=re.IGNORECASE)
     try:
         parsed = json.loads(cleaned)
@@ -46,6 +89,7 @@ def parse_meal_response(raw_text: str) -> dict[str, Any]:
 
     items: list[dict[str, Any]] = []
     raw_items = parsed.get("items")
+    # Her geçerli ürün, sayısal alanları güvenle dönüştürülerek standart yapıya eklenir.
     if isinstance(raw_items, list):
         for raw_item in raw_items:
             if not isinstance(raw_item, dict):
@@ -77,6 +121,14 @@ def parse_meal_response(raw_text: str) -> dict[str, Any]:
 
 
 def calculate_meal_totals(items: list[dict[str, Any]]) -> dict[str, float | None]:
+    """Ürünlerdeki bilinen besin değerlerini toplayarak öğün toplamlarını hesaplar.
+
+    Args:
+        items: Analizde algılanan ürün sözlükleri.
+
+    Returns:
+        dict[str, float | None]: Her besin alanı için toplam değer veya None.
+    """
     totals: dict[str, float | None] = {}
     for field in NUTRIENT_FIELDS:
         values = [_number_or_none(item.get(field)) for item in items]
@@ -89,11 +141,20 @@ def scale_meal_items(
     current_items: list[dict[str, Any]],
     edited_rows: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """Gram değişikliklerini mevcut değerlere oranlar; Gemini çağrısı yapmaz."""
+    """Gram değişikliklerini mevcut değerlere oranlar; Gemini çağrısı yapmaz.
+
+    Args:
+        current_items: Analizden gelen özgün ürünler.
+        edited_rows: Kullanıcının ürün adı ve gram miktarı düzenlemeleri.
+
+    Returns:
+        tuple[list[dict[str, Any]], list[str]]: Güncellenen ürünler ve uyarılar.
+    """
     if len(current_items) != len(edited_rows):
         raise MealAnalysisError("Düzenlenen ürün listesi analiz sonucuyla eşleşmiyor.")
     updated_items: list[dict[str, Any]] = []
     warnings: list[str] = []
+    # Her düzenlenmiş satır, aynı sıradaki özgün analiz ürünüyle karşılaştırılır.
     for current, edited in zip(current_items, edited_rows):
         updated = copy.deepcopy(current)
         old_name = str(current.get("name") or "").strip()
@@ -124,11 +185,28 @@ def scale_meal_items(
 
 
 def is_new_meal_image(previous_hash: str | None, current_hash: str) -> bool:
+    """Yeni görsel özetinin önceki görsel özetinden farklı olup olmadığını kontrol eder.
+
+    Args:
+        previous_hash: Önceki görselin özeti.
+        current_hash: Yeni yüklenen görselin özeti.
+
+    Returns:
+        bool: Yeni ve boş olmayan bir görsel özeti varsa True.
+    """
     return bool(current_hash and previous_hash != current_hash)
 
 
 def reset_meal_state_for_new_image(state: Any, current_hash: str) -> bool:
-    """Yeni fotoğrafta yalnızca ekranda aktif olan eski analiz durumunu temizler."""
+    """Yeni fotoğrafta yalnızca ekranda aktif olan eski analiz durumunu temizler.
+
+    Args:
+        state: Streamlit session state benzeri anahtar-değer yapısı.
+        current_hash: Yeni görselin içerik özeti.
+
+    Returns:
+        bool: Durum temizlendiyse True, görsel aynıysa False.
+    """
     if not is_new_meal_image(state.get("meal_analysis_photo_hash"), current_hash):
         return False
     state["meal_analysis_photo_hash"] = current_hash
@@ -148,6 +226,18 @@ def get_or_analyze_meal(
     goal: str,
     analyzer: Callable[[], dict[str, Any]],
 ) -> dict[str, Any]:
+    """Aynı görsel ve hedef için analiz sonucunu oturum önbelleğinden döndürür.
+
+    Args:
+        session_cache: Oturum içinde tutulan analiz önbelleği.
+        photo_hash: Görselin içerik özeti.
+        goal: Seçili beslenme hedefi.
+        analyzer: Önbellekte sonuç yokken analizi üreten işlev.
+
+    Returns:
+        dict[str, Any]: Önbellekteki veya yeni üretilen öğün analizi.
+    """
+    # Aynı anahtar bulunursa analyzer tekrar çağrılmaz.
     cache_key = f"{photo_hash}:{goal}"
     if cache_key not in session_cache:
         session_cache[cache_key] = analyzer()
@@ -155,10 +245,28 @@ def get_or_analyze_meal(
 
 
 def build_analysis_id(photo_hash: str, goal: str) -> str:
+    """Görsel özeti ve hedeften öğün kaydı için kararlı benzersiz kimlik üretir.
+
+    Args:
+        photo_hash: Görselin içerik özeti.
+        goal: Seçili beslenme hedefi.
+
+    Returns:
+        str: SHA-256 ile üretilen analiz kimliği.
+    """
     return hashlib.sha256(f"{photo_hash}:{goal}".encode("utf-8")).hexdigest()
 
 
 def add_daily_meal(daily_meals: list[dict[str, Any]], record: dict[str, Any]) -> bool:
+    """Yeni analiz kaydını günlük listeye ekler ve tekrarını engeller.
+
+    Args:
+        daily_meals: Oturumda tutulan günlük öğün listesi.
+        record: Eklenecek öğün kaydı.
+
+    Returns:
+        bool: Yeni kayıt eklendiyse True, geçersiz veya tekrar ise False.
+    """
     analysis_id = str(record.get("analysis_id") or "")
     if not analysis_id or any(str(item.get("analysis_id")) == analysis_id for item in daily_meals):
         return False
@@ -167,6 +275,14 @@ def add_daily_meal(daily_meals: list[dict[str, Any]], record: dict[str, Any]) ->
 
 
 def _response_schema() -> dict[str, Any]:
+    """Gemini'nin döndürmesi beklenen tabak analizi JSON şemasını oluşturur.
+
+    Args:
+        Bu yardımcı fonksiyon değer almaz.
+
+    Returns:
+        dict[str, Any]: Structured output için şema sözlüğü.
+    """
     nullable_number = {"type": "NUMBER", "nullable": True}
     item_properties: dict[str, Any] = {
         "name": {"type": "STRING"},
@@ -190,6 +306,14 @@ def _response_schema() -> dict[str, Any]:
 
 
 def _instruction(goal: str) -> str:
+    """Tabak fotoğrafı analizi için Gemini yönergesini hazırlar.
+
+    Args:
+        goal: Kullanıcının seçili beslenme hedefi.
+
+    Returns:
+        str: Gemini'ye gönderilecek talimat metni.
+    """
     return f"""
 Yalnızca bu istekte gönderilen güncel fotoğrafı analiz et. Önceki analizlerden hiçbir ürün taşıma.
 Kullanıcının mevcut beslenme hedefi: {goal}
@@ -211,9 +335,19 @@ Kurallar:
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def analyze_meal_image(image_bytes: bytes, mime_type: str, goal: str) -> dict[str, Any]:
+    """Tabak fotoğrafını Gemini ile analiz edip doğrulanmış sonucu döndürür.
+
+    Args:
+        image_bytes: Yüklenen fotoğrafın ham baytları.
+        mime_type: Görselin MIME türü.
+        goal: Seçili beslenme hedefi.
+
+    Returns:
+        dict[str, Any]: Öğün ve besin değerleri analiz sonucu.
+    """
     api_key = _gemini_key()
     if not api_key:
-        raise MealAnalysisError("Gemini API anahtarı bulunamadı. GEMINI_API_KEY ayarını kontrol et.")
+        raise MealAnalysisError(GEMINI_AUTH_MESSAGE)
     resized_bytes, resized_mime = resize_label_image(image_bytes)
     payload = {
         "contents": [{"parts": [
@@ -227,20 +361,23 @@ def analyze_meal_image(image_bytes: bytes, mime_type: str, goal: str) -> dict[st
         },
     }
     try:
+        # Görsel, yönerge ve JSON şeması Gemini'ye tek HTTP isteğiyle gönderilir.
         response = requests.post(
             GEMINI_URL,
             headers={"x-goog-api-key": api_key, "Content-Type": "application/json"},
             json=payload,
             timeout=35,
         )
+    except requests.Timeout as exc:
+        logger.warning("Tabak analizi Gemini bağlantı hatası (type=timeout)")
+        raise MealAnalysisError(gemini_error_message(error=exc)) from exc
     except requests.RequestException as exc:
-        raise MealAnalysisError("Gemini servisine ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.") from exc
-    if response.status_code in {403, 429}:
-        raise MealAnalysisError("Gemini kotası dolmuş veya API anahtarı kullanılamıyor olabilir.")
-    if response.status_code != 200:
-        raise MealAnalysisError("Tabak şu anda analiz edilemedi. Biraz sonra tekrar dene.")
+        # Hata metni URL veya istek ayrıntısı içerebileceğinden yalnızca sınıf adı loglanır.
+        logger.warning("Tabak analizi Gemini bağlantı hatası (type=%s)", type(exc).__name__)
+        raise MealAnalysisError(gemini_error_message(error=exc)) from exc
+    _raise_for_gemini_status(response.status_code, response.text)
     try:
         raw_text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
     except (ValueError, KeyError, IndexError, TypeError) as exc:
-        raise MealAnalysisError("Gemini'den geçerli bir tabak analizi alınamadı.") from exc
+        raise MealAnalysisError(GEMINI_DEFAULT_ERROR_MESSAGE) from exc
     return parse_meal_response(raw_text)

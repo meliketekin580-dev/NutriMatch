@@ -2,3 +2,4 @@ streamlit
 requests
 deep-translator
 Pillow
+pymongo[srv]>=4.6,<5

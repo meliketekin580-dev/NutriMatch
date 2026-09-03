@@ -1,7 +1,8 @@
 from html import escape
 from base64 import b64encode
-from datetime import datetime
+from datetime import date, datetime, timedelta
 import hashlib
+import logging
 import json
 import re
 from pathlib import Path
@@ -9,7 +10,24 @@ from typing import Callable
 
 import streamlit as st
 
-from services.ai_service import analyze_food_image, ask_gemini
+from services.ai_service import (
+    GeminiServiceError,
+    analyze_food_image,
+    ask_gemini,
+    comment_on_weekly_summary,
+    suggest_next_meal,
+)
+from services.daily_meal_store import (
+    DailyMealStoreError,
+    claim_legacy_daily_meals_for_user,
+    count_claimable_legacy_daily_meals,
+    delete_daily_meal,
+    load_daily_meals,
+    load_daily_meals_for_date,
+    meals_for_date,
+    save_daily_meal,
+    weekly_summary,
+)
 from services.nutrition_label_service import (
     NutritionLabelError,
     analyze_nutrition_label,
@@ -27,6 +45,8 @@ from services.meal_analysis_service import (
 )
 from services.translator import translate_to_turkish
 from services.youtube_service import YouTubeServiceError, search_youtube_videos
+
+logger = logging.getLogger(__name__)
 
 
 GREEN = "#1f7a43"
@@ -75,10 +95,24 @@ FEATURED_RECIPES = [
     },
 ]
 
+RECIPE_IMAGE_FALLBACKS = {
+    "yumurta": "static/images/sebzeli_omlet.png",
+    "omlet": "static/images/sebzeli_omlet.png",
+    "menemen": "static/images/sebzeli_menemen.png",
+    "sote": "static/images/sebzeli_menemen.png",
+    "güveç": "static/images/sebzeli_menemen.png",
+    "kabak": "static/images/firinda_kabak_mucver.png",
+    "mücver": "static/images/firinda_kabak_mucver.png",
+    "salata": "static/images/kisir.png",
+    "kısır": "static/images/kisir.png",
+}
+DEFAULT_RECIPE_IMAGE = "static/images/kisir.png"
+
 
 @st.cache_data(show_spinner=False)
 def _image_source(source: str) -> str:
     """Yerel görselleri HTML kartlarında kullanılabilen data URL'ye çevir."""
+    source = str(source or "").strip()
     if source.startswith("static/"):
         path = Path(__file__).parent / source
         try:
@@ -89,11 +123,27 @@ def _image_source(source: str) -> str:
     return source
 
 
+def _fallback_recipe_image(recipe: dict) -> str:
+    """Tarif adına en yakın yerel yedek görselin data URL'sini döndürür."""
+    recipe_name = str(recipe.get("name", "")).casefold()
+    fallback_path = next(
+        (path for keyword, path in RECIPE_IMAGE_FALLBACKS.items() if keyword in recipe_name),
+        DEFAULT_RECIPE_IMAGE,
+    )
+    return _image_source(fallback_path)
+
+
+def _recipe_image_sources(recipe: dict) -> tuple[str, str]:
+    """Tarif için birincil görseli ve yükleme hatasında kullanılacak yedeği döndürür."""
+    fallback = _fallback_recipe_image(recipe)
+    primary = _image_source(str(recipe.get("image", ""))) or fallback
+    return primary, fallback
+
+
 def get_local_recipes() -> list[dict]:
     catalog_path = Path(__file__).parent / "data" / "recipes.json"
     extra_catalog_path = Path(__file__).parent / "data" / "recipes_extra.json"
     ingredients_path = Path(__file__).parent / "data" / "recipe_ingredients.json"
-    extra_ingredients_path = Path(__file__).parent / "data" / "recipe_ingredients_extra.json"
     api_details_path = Path(__file__).parent / "data" / "api_recipe_details_tr.json"
     image_overrides_path = Path(__file__).parent / "data" / "recipe_image_overrides.json"
     try:
@@ -109,11 +159,6 @@ def get_local_recipes() -> list[dict]:
                 ingredients = json.load(file)
         except (OSError, ValueError):
             ingredients = {}
-        try:
-            with extra_ingredients_path.open(encoding="utf-8") as file:
-                ingredients.update(json.load(file))
-        except (OSError, ValueError):
-            pass
         try:
             with api_details_path.open(encoding="utf-8") as file:
                 api_details = json.load(file)
@@ -132,8 +177,9 @@ def get_local_recipes() -> list[dict]:
                 recipe["ingredients"] = []
             if recipe.get("id") and str(recipe["id"]) in api_details:
                 recipe.update(api_details[str(recipe["id"])])
-            if recipe.get("name") in image_overrides:
-                recipe["image"] = image_overrides[recipe["name"]]
+            override_image = image_overrides.get(recipe.get("name"))
+            if str(override_image or "").strip():
+                recipe["image"] = override_image
         unique: list[dict] = []
         seen: set[str] = set()
         for recipe in recipes:
@@ -186,21 +232,45 @@ def apply_styles() -> None:
         .brand-mark svg {width:40px; height:38px; overflow:visible;}
         .brand-nutri {color:#08783f;}
         .brand-match {color:#f5a313;}
+        [data-testid="stHorizontalBlock"]:has(.brand) {align-items:center;}
+        .st-key-navbar_profile {width:100%;}
+        .st-key-navbar_profile [data-testid="stPopover"] > button {
+            min-height:46px !important; width:100% !important; padding:8px 13px !important;
+            justify-content:flex-start !important; overflow:hidden !important;
+            color:#0b5f37 !important; background:#f5fbf6 !important;
+            border:2px solid #c8dfcf !important; border-radius:999px !important;
+            box-shadow:0 3px 8px rgba(15,23,42,.06) !important;
+        }
+        .st-key-navbar_profile [data-testid="stPopover"] > button p {
+            min-width:0 !important; overflow:hidden !important; text-overflow:ellipsis !important;
+            white-space:nowrap !important; color:#0b5f37 !important;
+            font-size:14px !important; font-weight:800 !important;
+        }
+        .st-key-navbar_profile [data-testid="stPopover"] > button:hover {
+            color:#064e2e !important; border-color:#78b98d !important; background:#edf8f0 !important;
+        }
+        [data-testid="stPopoverBody"]:has(.profile-menu-name) {
+            width:min(280px,calc(100vw - 24px)) !important; padding:14px !important;
+            border:1px solid #d7e6db !important; border-radius:16px !important;
+            background:#fffdfa !important; box-shadow:0 14px 32px rgba(15,23,42,.14) !important;
+        }
+        .profile-menu-name {margin:0 0 10px; color:#10233f; font-size:14px; font-weight:800; overflow-wrap:anywhere;}
+        .st-key-oidc_logout button {min-height:40px !important; color:#fff !important; background:#1f7a43 !important; border-color:#1f7a43 !important;}
         h1, h2, h3 {color:#071a38 !important; letter-spacing:0;}
-        [data-testid="stHorizontalBlock"]:has(.home-hero-copy) {height:520px; min-height:520px; align-items:stretch; gap:0; margin:2px 0 38px; padding:0; overflow:hidden; border:1px solid #0b5a3d; border-radius:22px; background:#034d34 center/cover no-repeat; box-shadow:0 14px 36px rgba(15,23,42,.12);}
-        [data-testid="stHorizontalBlock"]:has(.home-hero-copy) > [data-testid="stColumn"]:first-child {display:flex; flex-direction:column; justify-content:center; padding:38px 38px 34px 46px; background:linear-gradient(90deg,rgba(0,55,37,.98),rgba(0,79,51,.91) 70%,rgba(0,79,51,0));}
+        [data-testid="stHorizontalBlock"]:has(.home-hero-copy) {height:344px; min-height:344px; align-items:stretch; gap:0; margin:2px 0 18px; padding:0; overflow:hidden; border:1px solid #0b5a3d; border-radius:18px; background:#034d34 center/cover no-repeat; box-shadow:0 14px 36px rgba(15,23,42,.12);}
+        [data-testid="stHorizontalBlock"]:has(.home-hero-copy) > [data-testid="stColumn"]:first-child {display:flex; flex-direction:column; justify-content:center; padding:32px 34px 30px 38px; background:linear-gradient(90deg,rgba(0,57,38,.99),rgba(0,77,49,.92) 68%,rgba(0,77,49,0));}
         [data-testid="stHorizontalBlock"]:has(.home-hero-copy) > [data-testid="stColumn"]:last-child {min-height:0; padding:0;}
         .home-hero-copy {display:block; width:1px; height:1px; overflow:hidden; opacity:0; pointer-events:none;}
-        .eyebrow {display:inline-flex; width:fit-content; align-items:center; padding:8px 13px; border-radius:999px; background:rgba(34,197,94,.17); border:1px solid rgba(134,239,172,.22); color:#f0fff5; font-size:14px; font-weight:800; margin-bottom:10px;}
-        .hero-title {font-size:43px; line-height:1.08; font-weight:850; color:#fff; margin:14px 0 17px; letter-spacing:-1px;}
+        .eyebrow {display:inline-flex; width:fit-content; align-items:center; padding:8px 13px; border-radius:999px; background:rgba(34,197,94,.17); border:1px solid rgba(134,239,172,.22); color:#f0fff5; font-size:14px; font-weight:800; margin-bottom:9px;}
+        .hero-title {font-size:45px; line-height:1.14; font-weight:850; color:#fff; margin:9px 0 12px; letter-spacing:-1.1px;}
         .hero-title span {color:#55d56b;}
         .muted {color:#526779; line-height:1.7;}
         .hero-title + .muted {max-width:520px; color:#eef9f2 !important; font-size:16px; line-height:1.6; font-weight:600; margin:0 0 16px;}
+        .hero-description {max-width:520px; color:#ffffff !important; font-size:16px !important; line-height:1.55 !important; font-weight:650 !important; letter-spacing:.05px; margin:0 0 14px !important; text-shadow:0 1px 2px rgba(0,0,0,.34);}
         .hero-image-frame {display:none;}
         .hero-image-frame .hero-image {display:block; width:100% !important; max-width:none !important; height:100% !important; object-fit:cover; object-position:center; border-radius:0 21px 21px 0; box-shadow:none;}
         .hero-image {display:block; width:100% !important; max-width:none !important; height:405px; object-fit:cover; object-position:center; border-radius:22px; box-shadow:0 16px 35px rgba(15,23,42,.13);}
-        .hero-proof {display:flex; flex-wrap:wrap; gap:10px; margin:20px 0 20px;}
-        .hero-proof span {display:inline-flex; align-items:center; gap:7px; min-height:42px; padding:9px 13px; border:1.5px solid #9ac8aa; border-radius:12px; color:#183f2d; font-size:14px; font-weight:780; box-shadow:0 5px 12px rgba(31,122,67,.08);}
+        .hero-proof {display:none;}
         .hero-proof span:nth-child(1) {background:#e9f7ee; border-color:#86c59a;}
         .hero-proof span:nth-child(2) {background:#fff6e3; border-color:#f0c36b; color:#714b0d;}
         .hero-proof span:nth-child(3) {background:#f0f8ed; border-color:#a9d59b;}
@@ -214,9 +284,16 @@ def apply_styles() -> None:
         .popular-heading h2::after {transform:rotate(0deg);}
         .info-card, .recipe-card, .stat-card {background:#fff; border:1px solid #e5e7eb; border-radius:16px; box-shadow:0 5px 16px rgba(15,23,42,.06);}
         .info-card {position:relative; padding:24px 20px; text-align:left; min-height:112px;}
-        .home-steps-heading {text-align:left; margin:4px 0 0; padding:18px 8px 0 0;}
-        .home-steps-heading h2 {margin:0 0 14px; font-size:27px; font-weight:850;}
-        .home-steps-heading p {margin:0; max-width:190px; color:#526779; font-size:15px; line-height:1.6;}
+        .home-feature-heading {text-align:center; padding:0 0 16px;}
+        .home-feature-heading h2 {display:flex; align-items:center; justify-content:center; gap:20px; margin:0; font-size:27px; font-weight:850;}
+        .home-feature-heading h2::before,.home-feature-heading h2::after {content:""; width:42px; height:2px; background:#59b77b;}
+        .home-feature-card {position:relative; min-height:145px; height:100%; padding:17px 21px; text-align:center; border:1px solid #e1e8e3; border-radius:14px; background:#fff; box-shadow:0 5px 15px rgba(15,23,42,.06);}
+        .home-feature-card .feature-icon {display:flex; align-items:center; justify-content:center; width:46px; height:46px; margin:0 auto 8px; border-radius:50%; background:#edf8ef; color:#178042; font-size:25px;}
+        .home-feature-card h4 {margin:0 0 6px; color:#091d42; font-size:17px; font-weight:820;}
+        .home-feature-card p {max-width:260px; margin:0 auto; color:#425b78; font-size:14px; line-height:1.45;}
+        .home-feature-card--wide {display:flex; align-items:center; min-height:102px; padding:18px 28px; text-align:left;}
+        .home-feature-card--wide .feature-icon {flex:0 0 48px; margin:0 18px 0 0;}
+        .home-feature-card--wide p {max-width:none; margin:0;}
         .home-step-card {min-height:165px; height:100%; margin:0; padding:25px 20px;}
         .home-step-card .step-content {min-height:122px; gap:18px;}
         .home-step-card .info-icon {width:58px; height:58px; flex-basis:58px;}
@@ -229,13 +306,14 @@ def apply_styles() -> None:
         .info-card p {margin:0; font-size:15px; line-height:1.55; font-weight:520;}
         .recipe-card {overflow:hidden; margin-bottom:10px; min-height:390px; border-radius:16px; transition:transform .18s ease, box-shadow .18s ease;}
         .recipe-card:hover {transform:translateY(-3px); box-shadow:0 12px 24px rgba(15,23,42,.1);}
-        .recipe-card img {width:100%; height:235px; object-fit:cover; display:block;}
-        .home-recipe-card {display:grid; grid-template-columns:52% 48%; min-height:255px; height:255px;}
-        .home-recipe-card img,.home-recipe-card .recipe-image-placeholder {width:100%; height:255px; min-height:255px;}
-        .home-recipe-card .recipe-body {display:flex; flex-direction:column; justify-content:center; min-width:0; padding:16px 15px;}
-        .home-recipe-card .recipe-name {min-height:auto; font-size:16px; margin-bottom:8px;}
-        .home-recipe-card .recipe-meta {gap:7px; margin-top:8px;}
-        .home-recipe-card .goal-pill {margin:8px 0 0; width:fit-content;}
+        .recipe-card img {width:100%; height:235px; min-height:235px; max-height:235px; object-fit:cover; display:block;}
+        .recipe-card.home-recipe-card {display:flex; flex-direction:column; min-height:215px; height:215px; margin-bottom:10px;}
+        .home-recipe-card img,.home-recipe-card .recipe-image-placeholder {width:100%; height:94px; min-height:94px;}
+        .home-recipe-card .recipe-body {display:flex; flex:1; flex-direction:column; min-width:0; padding:11px 16px 12px;}
+        .home-recipe-card .recipe-type {display:none;}
+        .home-recipe-card .recipe-name {min-height:43px; font-size:15px; margin-bottom:7px;}
+        .home-recipe-card .recipe-meta {gap:9px; margin-top:auto; font-size:13px;}
+        .home-recipe-card .goal-pill {display:none;}
         .recipe-image-placeholder {height:235px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px; background:linear-gradient(145deg,#f3f8f4,#e8f2eb); color:#1f7a43;}
         .recipe-image-placeholder svg {width:42px; height:42px;}
         .recipe-image-placeholder span {font-size:12px; color:#64748b; font-weight:650;}
@@ -274,10 +352,53 @@ def apply_styles() -> None:
         .photo-analysis-head h3 {font-size:26px; font-weight:850; margin:0 0 8px; display:flex; align-items:center; gap:11px;}
         .photo-analysis-icon {display:inline-flex; align-items:center; justify-content:center; width:42px; height:42px; border-radius:12px; background:#fff0d5; color:#d97706; font-size:21px; box-shadow:0 4px 12px rgba(217,119,6,.12);}
         .photo-analysis-head p {margin:0; color:#526779; font-size:15px; font-weight:520; line-height:1.6;}
+        .st-key-ingredient_upload_card,
+        .st-key-label_upload_card,
+        .st-key-meal_upload_card {margin:18px 0 20px; padding:27px 30px; border:2px solid #bfe4ca; border-radius:24px; background:linear-gradient(120deg,#ffffff 0%,#fbfefc 100%); box-shadow:0 12px 28px rgba(15,23,42,.08);}
+        .upload-card-copy {display:flex; align-items:center; gap:22px; min-height:118px;}
+        .upload-card-icon {display:flex; flex:0 0 106px; align-items:center; justify-content:center; width:106px; height:106px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#f8fff9,#e4f5e8); color:#219349; font-size:52px;}
+        .upload-card-copy h3 {margin:0 0 9px; color:#071a38; font-size:28px; line-height:1.15; font-weight:850;}
+        .upload-card-copy p {margin:0 0 17px; color:#60708d; font-size:17px; line-height:1.5;}
+        .upload-card-copy small {display:block; color:#42755a; font-size:14px; font-weight:700;}
+        .st-key-ingredient_upload_card [data-testid="stFileUploaderDropzone"],
+        .st-key-label_upload_card [data-testid="stFileUploaderDropzone"],
+        .st-key-meal_upload_card [data-testid="stFileUploaderDropzone"] {display:flex; align-items:center; justify-content:center; min-height:118px !important; padding:0 !important; border:0 !important; background:transparent !important;}
+        .st-key-ingredient_upload_card [data-testid="stFileUploaderDropzoneInstructions"],
+        .st-key-label_upload_card [data-testid="stFileUploaderDropzoneInstructions"],
+        .st-key-meal_upload_card [data-testid="stFileUploaderDropzoneInstructions"] {display:none !important;}
+        .st-key-ingredient_upload_card [data-testid="stFileUploaderDropzone"] button,
+        .st-key-label_upload_card [data-testid="stFileUploaderDropzone"] button,
+        .st-key-meal_upload_card [data-testid="stFileUploaderDropzone"] button {width:100%; min-height:72px; padding:0 22px; border:0 !important; border-radius:16px; background:linear-gradient(135deg,#16803f,#24a556) !important; color:#fff !important; box-shadow:0 10px 18px rgba(31,122,67,.22); font-size:0 !important; font-weight:850;}
+        .st-key-ingredient_upload_card [data-testid="stFileUploaderDropzone"] button *,
+        .st-key-label_upload_card [data-testid="stFileUploaderDropzone"] button *,
+        .st-key-meal_upload_card [data-testid="stFileUploaderDropzone"] button * {display:none !important;}
+        .st-key-ingredient_upload_card [data-testid="stFileUploaderDropzone"] button::after,
+        .st-key-label_upload_card [data-testid="stFileUploaderDropzone"] button::after,
+        .st-key-meal_upload_card [data-testid="stFileUploaderDropzone"] button::after {content:"Fotoğraf Seç"; color:#fff; font-size:18px; font-weight:850;}
+        /* Yükleme sonrasında oluşan dosya satırındaki kaldırma düğmesini,
+           büyük yeşil "Fotoğraf Seç" düğmesi stilinden ayır. */
+        .st-key-meal_upload_card [data-testid="stFileUploaderFile"] button {
+            width:36px !important;
+            min-width:36px !important;
+            min-height:36px !important;
+            padding:0 !important;
+            border:0 !important;
+            border-radius:50% !important;
+            background:transparent !important;
+            color:#526779 !important;
+            box-shadow:none !important;
+            font-size:inherit !important;
+        }
+        .st-key-meal_upload_card [data-testid="stFileUploaderFile"] button::after {content:none !important;}
+        .st-key-meal_upload_card [data-testid="stFileUploaderFile"] button * {display:initial !important;}
         .discover-intro {margin:2px 0 24px; padding:20px 23px; border-left:6px solid #1f7a43; border-radius:15px; background:linear-gradient(120deg,#edf8f0,#fff8e8); box-shadow:0 7px 18px rgba(31,122,67,.08);}
         .discover-intro h1 {margin:0 0 7px; font-size:38px; line-height:1.15; font-weight:850;}
         .discover-intro p {margin:0; color:#425d4d; font-size:16px; line-height:1.6; font-weight:550;}
         .discover-intro + .muted {display:none;}
+        .feature-section-intro {display:flex; align-items:center; gap:18px; margin:10px 0 24px; padding:20px 23px; border:1px solid #cfe8d7; border-left:5px solid #1f7a43; border-radius:16px; background:linear-gradient(120deg,#edf8f0,#fff8e8); box-shadow:0 7px 18px rgba(31,122,67,.08);}
+        .feature-section-icon {display:flex; align-items:center; justify-content:center; flex:0 0 60px; width:60px; height:60px; border-radius:50%; background:#e5f5e9; color:#18743c; font-size:29px;}
+        .feature-section-intro h1 {margin:0 0 7px; color:#071a38 !important; font-size:34px; line-height:1.15; font-weight:850;}
+        .feature-section-intro p {margin:0; color:#425d4d; font-size:16px; line-height:1.6; font-weight:550;}
         div[data-testid="stVerticalBlock"]:has(.discover-intro) h3 {font-size:27px !important; font-weight:850 !important; margin-top:22px !important;}
         div[data-testid="stVerticalBlock"]:has(.discover-intro) h4 {font-size:23px !important; font-weight:820 !important; margin-top:18px !important;}
         div[data-testid="stVerticalBlock"]:has(.discover-intro) label,
@@ -298,9 +419,14 @@ def apply_styles() -> None:
         .label-reading-note {margin:12px 0; padding:10px 13px; border-radius:11px; background:#f4f8f5; color:#476156; font-size:12px; font-weight:650;}
         .label-disclaimer {margin:16px 0 8px; padding:14px 16px; border-left:4px solid #e59b2f; border-radius:10px; background:#fff7e6; color:#684a1c; font-size:12px; line-height:1.55;}
         [data-testid="stTabs"] [data-baseweb="tab-list"] {gap:9px; padding:7px 7px 0; border:1px solid #dce8df; border-radius:14px 14px 0 0; background:#f8fbf9; overflow-x:auto;}
-        [data-testid="stTabs"] [data-baseweb="tab"] {height:50px; padding:0 18px; border:1px solid #d8e4dc; border-bottom:0; border-radius:11px 11px 0 0; background:#fffdf8; color:#263d32; font-size:15px; font-weight:750; white-space:nowrap;}
-        [data-testid="stTabs"] [data-baseweb="tab"] p {font-size:15px; font-weight:750;}
-        [data-testid="stTabs"] [aria-selected="true"] {border-color:#83bd96; background:#eaf7ee; color:#14532d; box-shadow:inset 0 -3px 0 #1f7a43;}
+        [data-testid="stTabs"] [data-baseweb="tab"] {height:62px; padding:0 24px; border:2px solid #d1e0d6; border-bottom:0; border-radius:13px 13px 0 0; background:#fff; color:#0b2347 !important; font-size:18px !important; font-weight:850 !important; white-space:nowrap;}
+        [data-testid="stTabs"] [data-baseweb="tab"] p,
+        [data-testid="stTabs"] [data-baseweb="tab"] span,
+        [data-testid="stTabs"] [data-baseweb="tab"] div {color:#0b2347 !important; font-size:18px !important; font-weight:850 !important; letter-spacing:.05px;}
+        [data-testid="stTabs"] [aria-selected="true"] {border-color:#178042; background:#eaf8ee; color:#075d32 !important; box-shadow:inset 0 -4px 0 #147a3c,0 4px 10px rgba(20,122,67,.12);}
+        [data-testid="stTabs"] [aria-selected="true"] p,
+        [data-testid="stTabs"] [aria-selected="true"] span,
+        [data-testid="stTabs"] [aria-selected="true"] div {color:#075d32 !important;}
         [data-testid="stTabs"] [data-baseweb="tab-highlight"] {display:none;}
         .stTabs [role="tablist"], div[role="tablist"] {gap:10px !important; padding:8px 8px 0 !important; border:1px solid #dce8df !important; border-radius:15px 15px 0 0 !important; background:#f8fbf9 !important; overflow-x:auto !important;}
         .stTabs button[role="tab"], div[role="tablist"] button[role="tab"] {height:56px !important; min-height:56px !important; padding:0 22px !important; border:1.5px solid #d2dfd6 !important; border-bottom:0 !important; border-radius:12px 12px 0 0 !important; background:#fffdf8 !important; color:#183527 !important; font-size:17px !important; font-weight:800 !important; white-space:nowrap !important;}
@@ -344,6 +470,14 @@ def apply_styles() -> None:
         .meal-item-grid b {display:block; margin-top:3px; color:#173527; font-size:12px;}
         .meal-confidence {width:fit-content; margin:14px 0; padding:9px 13px; border:1px solid #a8d5b5; border-radius:11px; background:#edf8f0; color:#28543a; font-size:12px;}
         .meal-disclaimer {margin:16px 0; padding:14px 16px; border-left:4px solid #e59b2f; border-radius:10px; background:#fff7e6; color:#684a1c; font-size:12px; line-height:1.55;}
+        .weekly-summary-note {margin:12px 0 16px; padding:12px 15px; border:1px solid #c9e5d1; border-radius:12px; background:#eef9f1; color:#23533a; font-size:14px;}
+        .weekly-chart {margin:8px 0 25px; padding:18px 20px 16px; border:1px solid #d7e8dc; border-radius:16px; background:#fbfefc;}
+        .weekly-chart h4 {margin:0 0 12px; color:#092344; font-size:18px;}
+        .weekly-chart-bars {display:flex; align-items:flex-end; gap:12px; height:170px; padding:8px 5px 0; border-bottom:1px solid #dce8df;}
+        .weekly-chart-bar {display:grid; grid-template-rows:20px 1fr 23px; flex:1; min-width:0; height:160px; justify-items:center; align-items:end;}
+        .weekly-chart-bar span {color:#335a43; font-size:12px; font-weight:750;}
+        .weekly-chart-bar i {display:block; align-self:end; width:min(52px,72%); min-height:5px; border-radius:9px 9px 2px 2px; background:linear-gradient(180deg,#49a76c,#1f7a43);}
+        .weekly-chart-bar small {align-self:end; color:#526b5c; font-size:12px; white-space:nowrap;}
         .result-ingredients {display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:14px 0 20px; padding:13px 15px; background:#f0f9f3; border:1px solid #c5e4cf; border-radius:14px;}
         .result-ingredients-title {color:#166534; font-size:13px; font-weight:750; margin-right:4px;}
         .result-ingredient-chip {display:inline-flex; align-items:center; padding:6px 10px; border-radius:999px; background:#fff; border:1px solid #9ac8aa; color:#14532d; font-size:12px; font-weight:650;}
@@ -496,6 +630,19 @@ def apply_styles() -> None:
         .st-key-ingredient_form_input input {min-height:50px !important; font-size:15px !important;}
         [class*="st-key-quick_"] button {min-height:47px !important; font-size:14px !important; font-weight:750 !important;}
         .st-key-ingredient_form button {min-height:48px !important; font-size:14px !important; font-weight:800 !important;}
+        .st-key-discover_recipes_submit button {
+            color:#ffffff !important;
+            font-size:17px !important;
+            font-weight:850 !important;
+            text-shadow:0 1px 1px rgba(0,0,0,.12) !important;
+        }
+        .st-key-discover_recipes_submit button p,
+        .st-key-discover_recipes_submit button span,
+        .st-key-discover_recipes_submit button div {
+            color:#ffffff !important;
+            font-size:17px !important;
+            font-weight:850 !important;
+        }
         .st-key-ingredient_photo_uploader [data-testid="stFileUploaderDropzone"] {min-height:92px; background:#fbfdfb; border:1.5px dashed #9ac8aa;}
         /* Tarifimi Kesfet ekranindaki dort ana sekmeyi belirginlestir. */
         [data-testid="stTabs"] > div > [data-baseweb="tab-list"] {
@@ -520,25 +667,97 @@ def apply_styles() -> None:
             box-shadow:inset 0 -5px 0 #1f7a43,0 4px 12px rgba(31,122,67,.12) !important;
         }
         .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"] {
-            display:grid !important; grid-template-columns:repeat(4,minmax(0,1fr)) !important;
-            gap:14px !important; padding:10px !important; border:2px solid #d7e8dc !important;
+            display:grid !important; grid-template-columns:1.35fr 1.22fr 1.22fr .88fr 1.42fr !important;
+            gap:12px !important; padding:10px !important; border:2px solid #d7e8dc !important;
             border-radius:16px !important; background:#f6faf7 !important;
         }
-        .st-key-discover_section_nav [data-testid="stRadio"] label {
-            display:flex !important; justify-content:center !important; min-height:72px !important;
-            padding:14px 16px !important; border:2px solid #d3e0d7 !important;
+        /* st.radio'nun boş widget etiketi bir seçenek değildir; kart görünümü
+           yalnızca radio grubundaki gerçek seçenek etiketlerine uygulanır. */
+        .st-key-discover_section_nav [data-testid="stRadio"] > label,
+        .st-key-discover_section_nav [data-testid="stRadio"] > div > label {
+            display:none !important; height:0 !important; min-height:0 !important;
+            margin:0 !important; padding:0 !important; border:0 !important;
+        }
+        .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"] > label {
+            display:flex !important; align-items:center !important; justify-content:center !important; min-height:62px !important;
+            min-width:0 !important; overflow:hidden !important; padding:9px 10px !important; border:2px solid #d3e0d7 !important;
             border-radius:13px !important; background:#fff !important; text-align:center !important;
             box-shadow:0 3px 9px rgba(15,23,42,.05) !important;
         }
-        .st-key-discover_section_nav [data-testid="stRadio"] label p {
-            color:#10233f !important; font-size:19px !important; line-height:1.25 !important;
-            font-weight:850 !important; white-space:nowrap !important;
+        .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"] > label [data-baseweb="radio"],
+        .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"] > label input,
+        .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked)::after {display:none !important;}
+        .st-key-discover_section_nav [data-testid="stRadio"] [data-baseweb="radio"],
+        .st-key-discover_section_nav [data-testid="stRadio"] input[type="radio"] {display:none !important;}
+        .st-key-discover_section_nav div[data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked)::after {
+            content:none !important; display:none !important;
         }
-        .st-key-discover_section_nav [data-testid="stRadio"] label:has(input:checked) {
+        .st-key-discover_section_nav {padding:10px !important; border:2px solid #d7e8dc !important; border-radius:16px !important; background:#f6faf7 !important;}
+        .st-key-discover_section_nav [data-testid="stWidgetLabel"] {display:none !important;}
+        .discover-section-title {margin:6px 0 14px; color:#071a38; font-size:25px; font-weight:850; line-height:1.2; text-align:center;}
+        .discover-section-title::after {content:""; display:block; width:52px; height:3px; margin:10px auto 0; border-radius:99px; background:#1f7a43;}
+        .st-key-discover_section_nav [data-testid="stHorizontalBlock"] {gap:12px !important;}
+        .st-key-discover_section_nav div.stButton > button {
+            min-height:64px !important; padding:10px 10px !important; border:2px solid #bfd5c7 !important;
+            border-radius:13px !important; background:#fff !important; color:#10233f !important;
+            font-size:16px !important; line-height:1.2 !important; font-weight:800 !important;
+            white-space:nowrap !important; box-shadow:0 3px 9px rgba(15,23,42,.05) !important;
+        }
+        .st-key-discover_section_nav div.stButton > button[kind="primary"] {
+            border-color:#1f7a43 !important; background:#e4f5e9 !important; color:#0c6634 !important;
+            box-shadow:inset 0 -5px 0 #1f7a43,0 5px 12px rgba(31,122,67,.13) !important;
+        }
+        .st-key-discover_section_nav div.stButton > button p,
+        .st-key-discover_section_nav div.stButton > button span,
+        .st-key-discover_section_nav div.stButton > button div {
+            color:inherit !important; font-size:16px !important; line-height:1.2 !important;
+            font-weight:800 !important;
+        }
+        .st-key-discover_section_button_0 button,
+        .st-key-discover_section_button_1 button,
+        .st-key-discover_section_button_2 button,
+        .st-key-discover_section_button_3 button,
+        .st-key-discover_section_button_4 button {
+            min-height:64px !important; padding:10px 10px !important;
+            border:2px solid #bcd4c5 !important; border-radius:15px !important;
+            color:#061b3d !important; background:#fff !important;
+            font-size:16px !important; font-weight:800 !important; line-height:1.2 !important;
+            white-space:nowrap !important;
+        }
+        .st-key-discover_section_button_0 button *,
+        .st-key-discover_section_button_1 button *,
+        .st-key-discover_section_button_2 button *,
+        .st-key-discover_section_button_3 button *,
+        .st-key-discover_section_button_4 button * {
+            color:inherit !important; font-size:16px !important;
+            font-weight:800 !important; line-height:1.2 !important;
+        }
+        /* Streamlit bazı sürümlerde üst kapsayıcı sınıfını DOM'a taşımaz.
+           Sekme düğmelerinin kendi key sınıflarını hedeflemek daha kararlıdır. */
+        div[class*="st-key-discover_tab_"] button {
+            min-height:64px !important; padding:10px 10px !important;
+            color:#071a38 !important; font-size:16px !important;
+            font-weight:800 !important; line-height:1.2 !important;
+            white-space:nowrap !important;
+        }
+        div[class*="st-key-discover_tab_"] button p,
+        div[class*="st-key-discover_tab_"] button span,
+        div[class*="st-key-discover_tab_"] button div {
+            color:inherit !important; font-size:16px !important;
+            font-weight:800 !important; line-height:1.2 !important;
+        }
+        .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"] > label p,
+        .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"] > label span,
+        .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"] > label div:not([data-baseweb="radio"]) {
+            color:#10233f !important; font-size:14px !important; line-height:1.18 !important;
+            font-weight:800 !important; white-space:normal !important; overflow-wrap:break-word !important;
+            overflow:hidden !important; text-overflow:clip !important; margin:0 !important; padding:0 !important;
+        }
+        .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked) {
             border-color:#1f7a43 !important; background:#e4f5e9 !important;
             box-shadow:inset 0 -5px 0 #1f7a43,0 5px 12px rgba(31,122,67,.13) !important;
         }
-        .st-key-discover_section_nav [data-testid="stRadio"] label:has(input:checked) p {color:#0c6634 !important;}
+        .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"] > label:has(input:checked) p {color:#0c6634 !important;}
         @media(max-width:1024px){
             .block-container,[data-testid="stMainBlockContainer"]{width:94% !important; padding:20px 20px 56px !important;}
             [data-testid="stHorizontalBlock"]:has(.home-hero-copy){
@@ -583,8 +802,48 @@ def apply_styles() -> None:
             [data-testid="stTabs"] button[role="tab"],
             [data-testid="stTabs"] button[role="tab"] p{font-size:17px !important;}
             [data-testid="stTabs"] button[role="tab"]{min-height:58px !important; height:58px !important; padding:0 16px !important;}
-            .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"]{grid-template-columns:1fr !important;}
-            .st-key-discover_section_nav [data-testid="stRadio"] label p{font-size:17px !important;}
+            .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"]{
+                display:flex !important; grid-template-columns:none !important; overflow-x:auto !important;
+                flex-wrap:nowrap !important; scroll-snap-type:x proximity; scrollbar-width:thin;
+            }
+            .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"] > label{
+                flex:0 0 220px !important; scroll-snap-align:start;
+            }
+            .st-key-discover_section_nav [data-testid="stRadio"] > div[role="radiogroup"] > label p{font-size:17px !important;}
+            [data-testid="stHorizontalBlock"]:has(.brand){flex-wrap:wrap !important; gap:8px !important;}
+            [data-testid="stHorizontalBlock"]:has(.brand) > [data-testid="stColumn"]:first-child{
+                min-width:100% !important; flex:1 1 100% !important;
+            }
+            [data-testid="stHorizontalBlock"]:has(.brand) > [data-testid="stColumn"]:not(:first-child){
+                min-width:0 !important; flex:1 1 calc(50% - 8px) !important;
+            }
+            .st-key-navbar_profile [data-testid="stPopover"] > button{justify-content:center !important;}
+        }
+        .about-page {max-width:1240px; margin:0 auto; padding:10px 8px 24px; color:#10233f;}
+        .about-top {display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:56px; align-items:center; padding:18px 0 30px;}
+        .about-kicker {margin:0 0 14px; color:#1f7a43; font-size:12px; letter-spacing:1.7px; font-weight:850;}
+        .about-kicker::after {content:""; display:block; width:42px; height:2px; margin-top:13px; background:#f5a313;}
+        .about-title {margin:0 0 20px; max-width:540px; color:#071a38; font-size:42px; line-height:1.13; letter-spacing:-.7px; font-weight:800;}
+        .about-copy {max-width:535px; margin:0 0 15px; color:#304764; font-size:16px; line-height:1.75;}
+        .about-image {display:block; width:100%; height:330px; object-fit:cover; border-radius:20px;}
+        .about-quote {display:flex; align-items:center; justify-content:center; gap:24px; margin:0 -8px; padding:24px 32px; background:#edf7ef; color:#215e43; font-size:21px; font-weight:750; line-height:1.4; text-align:center;}
+        .about-values {display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); margin:34px 0 28px;}
+        .about-value {min-height:146px; padding:0 36px; text-align:center; border-right:1px solid #d8e2da;}
+        .about-value:last-child {border-right:0;}
+        .about-value-icon {display:block; height:34px; color:#1f7a43; font-size:31px; line-height:34px;}
+        .about-value h3 {position:relative; margin:13px 0 17px; color:#10233f !important; font-size:19px; font-weight:800;}
+        .about-value h3::after {content:""; position:absolute; width:28px; height:2px; left:50%; bottom:-10px; transform:translateX(-50%); background:#f5a313;}
+        .about-value p {margin:0; color:#40536b; font-size:14px; line-height:1.55;}
+        .about-note {display:flex; align-items:center; gap:10px; padding:17px 0 0; border-top:1px solid #dbe4dc; color:#506077; font-size:13px;}
+        .about-note span {color:#1f7a43; font-size:18px;}
+        @media(max-width:800px) {
+            .about-top {grid-template-columns:1fr; gap:26px; padding-top:4px;}
+            .about-title {font-size:34px;}
+            .about-image {height:260px;}
+            .about-quote {padding:22px 20px; font-size:17px;}
+            .about-values {grid-template-columns:1fr; gap:24px;}
+            .about-value {min-height:0; padding:0 14px 24px; border-right:0; border-bottom:1px solid #d8e2da;}
+            .about-value:last-child {border-bottom:0;}
         }
         </style>
         """,
@@ -593,7 +852,7 @@ def apply_styles() -> None:
 
 
 def render_navigation(current: str, navigate: Callable[[str], None]) -> None:
-    columns = st.columns([2.3, 1, 1, 1, 2.1], gap="small")
+    columns = st.columns([2.05, .9, .9, 1, 1.8, 1.55], gap="small")
     with columns[0]:
         st.markdown('''<div class="brand" translate="no">
             <span class="brand-mark" aria-hidden="true">
@@ -614,9 +873,18 @@ def render_navigation(current: str, navigate: Callable[[str], None]) -> None:
                 st.rerun()
 
     with columns[4]:
-        if st.button("Tarifimi Keşfet +", key="nav_discover", type="primary", use_container_width=True):
+        if st.button("Asistanımı Aç →", key="nav_discover", type="primary", use_container_width=True):
             navigate("Tarifimi Keşfet")
             st.rerun()
+
+    # Google OIDC'den gelen görünen ad navbarın sağındaki tek profil menüsünde kullanılır.
+    display_name = str(st.user.get("name") or "Kullanıcı") if st.user.is_logged_in else "Kullanıcı"
+    with columns[5]:
+        with st.container(key="navbar_profile"):
+            with st.popover(f"👤 {display_name}", use_container_width=True):
+                st.markdown(f'<div class="profile-menu-name">{escape(display_name)}</div>', unsafe_allow_html=True)
+                if st.button("Çıkış Yap", key="oidc_logout", use_container_width=True):
+                    st.logout()
 
     st.markdown('<div class="nav-divider"></div>', unsafe_allow_html=True)
 
@@ -635,44 +903,78 @@ def render_home(navigate: Callable[[str], None], popular_recipes: list[dict] | N
     left, right = st.columns([0.46, 0.54], gap="large", vertical_alignment="center")
     with left:
         st.markdown('<span class="home-hero-copy" aria-hidden="true">hero</span>', unsafe_allow_html=True)
-        st.markdown('<div class="eyebrow">Akıllı Tarif Asistanı</div>', unsafe_allow_html=True)
-        st.markdown('<div class="hero-title">Evindeki özelliklerle<br><span>harika tarifler keşfedin!</span></div>', unsafe_allow_html=True)
-        st.markdown('<p class="muted">Elindeki malzemeleri gir, sana en uygun sağlıklı tarifleri saniyeler içinde bulalım.</p>', unsafe_allow_html=True)
+        st.markdown('<div class="eyebrow">👤&nbsp; Kişisel Beslenme Asistanın</div>', unsafe_allow_html=True)
         st.markdown(
-            '<div class="hero-proof"><span><b>∞</b> Sınırsız tarif keşfi</span><span><b>3</b> Kişisel hedef</span><span><b>AI</b> Akıllı asistan</span></div>',
+            '<div class="hero-title">Beslenmeni <span>keşfet,</span><br>'
+            'tabağını <span>tanı,</span> hedefini <span>takip et</span></div>',
             unsafe_allow_html=True,
         )
-        if st.button("Tariflere Göz At →", key="hero_browse", type="primary"):
-            navigate("Tarifler")
+        st.markdown(
+            '<p class="hero-description">Malzemelerinden tarif bul, öğünlerini analiz et ve beslenme hedefini tek bir yerde takip et.</p>',
+            unsafe_allow_html=True,
+        )
+        if st.button("Hemen Keşfet  →", key="hero_browse", type="primary"):
+            navigate("Tarifimi Keşfet")
             st.rerun()
 
     with right:
         st.markdown('<span class="home-hero-visual" aria-hidden="true"></span>', unsafe_allow_html=True)
 
     cards = [
-        ("01", '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="8" y="5" width="16" height="22" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 14h16M12 9h4M12 19h8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>', "Malzemeleri Seç", "Evinde bulunan malzemeleri seç veya yaz."),
-        ("02", '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="m18 5 2 6 6 2-6 2-2 6-2-6-6-2 6-2 2-6ZM9 20l1 3 3 1-3 1-1 3-1-3-3-1 3-1 1-3Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>', "Tarifleri Keşfet", "Sana en uygun sağlıklı tarifleri bulalım."),
-        ("03", '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M7 18h18a9 9 0 0 1-18 0Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 11c-3-5 5-5 2-9M11 14c-2-3 3-4 1-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16 22c-2-3-7-1-7-5 0-3 4-4 7-1 3-3 7-2 7 1 0 4-5 2-7 5Z" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>', "Afiyetle Ye", "Lezzetli ve sağlıklı tariflerin tadını çıkar!"),
+        ("🥗", "Malzemelerimden Tarif Bul", "Elindeki malzemelerle sana özel tarifler bul."),
+        ("🏷️", "Besin Etiketi Analizi", "Ürün etiketini tara, içeriğini anında analiz et."),
+        ("🍽️", "Tabağımı Analiz Et", "Yemeğinin fotoğrafını yükle, besin değerlerini öğren."),
+        ("▶", "Hedefime Uygun Videolar", "Hedeflerine uygun eğitim ve beslenme videolarını izle."),
+        ("🗓️", "Beslenme Günlüğüm", "Günlük kalori ve makro hedeflerine ulaşmanı izle."),
     ]
-    recipes = (popular_recipes or FEATURED_RECIPES)[:3]
+    # API'nin önceki oturumda önbelleğe aldığı sonuçlar da burada tekrar
+    # kontrol edilir. Böylece "öne çıkan sağlıklı" alanında tatlı, kanat veya
+    # yoğun tereyağlı tarifler görünmez; yeterli uygun API sonucu yoksa seçili
+    # yerel vitrin tarifleriyle tamamlanır.
+    rejected_terms = ("cannoli", "dondurma", "ice cream", "çikolata", "chocolate", "kanat", "wing", "fried", "kızarmış", "tereyağı", "butter")
+    recipes: list[dict] = []
+    seen_recipe_names: set[str] = set()
+    for recipe in popular_recipes or []:
+        recipe_name = str(recipe.get("name", "")).strip()
+        recipe_key = recipe_name.casefold()
+        if (
+            not recipe_name
+            or any(term in recipe_key for term in rejected_terms)
+            or float(recipe.get("calories", 0) or 0) > 550
+            or float(recipe.get("protein", 0) or 0) < 12
+        ):
+            continue
+        recipes.append(recipe)
+        seen_recipe_names.add(recipe_key)
+        if len(recipes) == 3:
+            break
+    for recipe in FEATURED_RECIPES:
+        recipe_key = str(recipe.get("name", "")).strip().casefold()
+        if len(recipes) == 3:
+            break
+        if recipe_key and recipe_key not in seen_recipe_names:
+            recipes.append(recipe)
+            seen_recipe_names.add(recipe_key)
 
-    step_columns = st.columns([0.72, 1.16, 1.16, 1.16], gap="large")
-    with step_columns[0]:
-        st.markdown(
-            '<div class="home-steps-heading"><h2>Nasıl Çalışır?</h2><p>Sadece 3 adımda sana özel tariflere ulaş.</p></div>',
-            unsafe_allow_html=True,
-        )
-    for column, (number, icon, title, text) in zip(step_columns[1:], cards):
+    st.markdown('<div class="home-feature-heading"><h2>NutriMatch ile Neler Yapabilirsin?</h2></div>', unsafe_allow_html=True)
+    top_columns = st.columns(3, gap="medium")
+    for column, (icon, title, text) in zip(top_columns, cards[:3]):
         with column:
             st.markdown(
-                f'<div class="info-card home-step-card"><div class="step-number">{number}</div>'
-                f'<div class="step-content"><div class="info-icon">{icon}</div><div><h4>{title}</h4>'
-                f'<p class="muted">{text}</p></div></div></div>',
+                f'<div class="home-feature-card"><div class="feature-icon">{icon}</div><h4>{title}</h4><p>{text}</p></div>',
+                unsafe_allow_html=True,
+            )
+    bottom_columns = st.columns([1, 1.35, 1.35, 1], gap="medium")
+    for column, (icon, title, text) in zip((bottom_columns[1], bottom_columns[2]), cards[3:]):
+        with column:
+            st.markdown(
+                f'<div class="home-feature-card home-feature-card--wide"><div class="feature-icon">{icon}</div>'
+                f'<div><h4>{title}</h4><p>{text}</p></div></div>',
                 unsafe_allow_html=True,
             )
 
-    st.markdown('<div class="section popular-heading"><h2>Popüler Sağlıklı Tarifler</h2></div>', unsafe_allow_html=True)
-    _recipe_grid(recipes, "Dengeli Beslenme", navigate, card_variant="home")
+    st.markdown('<div class="section popular-heading"><h2>Öne Çıkan Sağlıklı Tarifler</h2></div>', unsafe_allow_html=True)
+    _recipe_grid(recipes, "Dengeli Beslenme", navigate, show_score=False, card_variant="home")
 
 
 def _format_label_value(value: object, unit: str) -> str:
@@ -686,14 +988,10 @@ def _format_label_value(value: object, unit: str) -> str:
 def _render_label_analysis_result(result: dict, goal: str) -> None:
     product_name = escape(str(result.get("product_name") or "Ürün adı okunamadı"))
     basis_type = escape(str(result.get("basis_type") or "bilinmiyor"))
-    score = result.get("match_score")
-    score_text = f"{float(score):.0f}" if score is not None else "—"
-
     st.markdown(
-        f'<div class="label-result-hero"><div><span>AI BESİN ETİKETİ RAPORU</span><h2>{product_name}</h2><p>Hedef: <b>{escape(goal)}</b> · Değerlerin ölçüsü: <b>{basis_type}</b></p></div><div class="label-score"><strong>{score_text}</strong><small>/ 100</small><em>NutriMatch Uygunluk Puanı</em></div></div>',
+        f'<div class="label-result-hero"><div><span>BESİN ETİKETİ RAPORU</span><h2>{product_name}</h2><p>Hedef: <b>{escape(goal)}</b> · Değerlerin ölçüsü: <b>{basis_type}</b></p></div></div>',
         unsafe_allow_html=True,
     )
-    st.caption("Bu puan yaklaşık ve yalnızca genel bilgilendirme amaçlıdır.")
 
     nutrient_items = [
         ("Enerji", result.get("energy_kj"), "kJ"),
@@ -737,7 +1035,7 @@ def _render_label_analysis_result(result: dict, goal: str) -> None:
                 st.markdown(f"- {point}")
 
     with st.container(border=True):
-        st.markdown("### 🎯 Hedefine Göre AI Yorumu")
+        st.markdown("### 🎯 Hedefine Göre Yorum")
         st.write(result.get("goal_explanation") or "Bu fotoğraftan hedefe göre güvenilir bir yorum üretilemedi.")
 
     unreadable = result.get("unreadable_fields") or []
@@ -748,7 +1046,7 @@ def _render_label_analysis_result(result: dict, goal: str) -> None:
 
 
 def _render_nutrition_label_analysis() -> None:
-    st.markdown('<div class="label-analysis-head"><div><h1>AI Besin Etiketi Analizi</h1><p>Ürünün besin değerleri tablosunun net bir fotoğrafını yükle; yapay zekâ etiketi okuyup seçtiğin hedefe göre değerlendirsin.</p></div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="feature-section-intro"><span class="feature-section-icon">🏷️</span><div><h1>Besin Etiketi Analizi</h1><p>Ürünün besin değerleri tablosunun net bir fotoğrafını yükle; yapay zekâ etiketi okuyup seçtiğin hedefe göre değerlendirsin.</p></div></div>', unsafe_allow_html=True)
     valid_goals = ["Kilo Verme", "Dengeli Beslenme", "Kas Yapma"]
     current_goal = st.session_state.get("goal")
     if current_goal not in valid_goals:
@@ -779,14 +1077,25 @@ def _render_nutrition_label_analysis() -> None:
 
     if "nutrition_label_cache" not in st.session_state:
         st.session_state.nutrition_label_cache = {}
-    uploaded_label = st.file_uploader(
-        "Besin değerleri tablosunun fotoğrafı",
-        type=["jpg", "jpeg", "png"],
-        key="nutrition_label_uploader",
-        help="En fazla 10 MB boyutunda, yazıları net görünen bir fotoğraf seç.",
-    )
+    with st.container(key="label_upload_card"):
+        upload_copy, upload_action = st.columns([2.2, 1], gap="large", vertical_alignment="center")
+        with upload_copy:
+            st.markdown(
+                '<div class="upload-card-copy"><div class="upload-card-icon">🏷️</div><div>'
+                '<h3>Besin etiketi fotoğrafını yükle</h3>'
+                '<p>Ürünün besin değerleri tablosunun net ve okunaklı fotoğrafını seç.</p>'
+                '<small>🛡 Fotoğrafın yalnızca analiz için kullanılır.</small></div></div>',
+                unsafe_allow_html=True,
+            )
+        with upload_action:
+            uploaded_label = st.file_uploader(
+                "Fotoğraf Seç",
+                type=["jpg", "jpeg", "png"],
+                key="nutrition_label_uploader",
+                help="En fazla 10 MB boyutunda, yazıları net görünen bir fotoğraf seç.",
+                label_visibility="collapsed",
+            )
     if uploaded_label is None:
-        st.markdown('<div class="label-upload-empty">📷 Etiketi mümkün olduğunca düz, aydınlık ve yakından çek.</div>', unsafe_allow_html=True)
         return
 
     image_bytes = uploaded_label.getvalue()
@@ -805,7 +1114,7 @@ def _render_nutrition_label_analysis() -> None:
     with action_column:
         st.markdown("#### Fotoğraf analize hazır")
         st.caption("Gemini isteği yalnızca aşağıdaki düğmeye bastığında bir kez gönderilir.")
-        analyze_clicked = st.button("Etiketi AI ile Analiz Et", type="primary", key="analyze_nutrition_label", use_container_width=True)
+        analyze_clicked = st.button("Etiketi Analiz Et", type="primary", key="analyze_nutrition_label", use_container_width=True)
 
     cache_key = f"{photo_hash}:{current_goal}"
     if analyze_clicked:
@@ -820,6 +1129,7 @@ def _render_nutrition_label_analysis() -> None:
                 )
             st.session_state.nutrition_label_active_result = {"key": cache_key, "data": result}
         except NutritionLabelError as exc:
+            st.session_state.pop("nutrition_label_active_result", None)
             st.session_state.nutrition_label_error = str(exc)
 
     if st.session_state.get("nutrition_label_error"):
@@ -919,7 +1229,7 @@ def _render_meal_result(result: dict, goal: str, photo_hash: str) -> None:
     if "daily_meals" not in st.session_state:
         st.session_state.daily_meals = []
     analysis_id = build_analysis_id(photo_hash, goal)
-    if st.button("+ Bu Öğünü Günüme Ekle", type="primary", key=f"add_daily_meal_{analysis_id}", use_container_width=True):
+    if st.button("Öğünüme Ekle", type="primary", key=f"add_daily_meal_{analysis_id}", use_container_width=True):
         record = {
             "analysis_id": analysis_id,
             "meal_name": result.get("meal_name") or "Analiz edilen öğün",
@@ -933,16 +1243,21 @@ def _render_meal_result(result: dict, goal: str, photo_hash: str) -> None:
             "total_fiber_g": totals.get("fiber_g"),
             "image_hash": photo_hash,
         }
-        if add_daily_meal(st.session_state.daily_meals, record):
-            st.session_state.meal_added_message = "Öğün gününe eklendi."
-        else:
-            st.session_state.meal_added_message = "Bu öğün daha önce gününe eklendi."
+        try:
+            if save_daily_meal(record):
+                add_daily_meal(st.session_state.daily_meals, record)
+                st.session_state.meal_added_message = "Öğün gününe eklendi."
+            else:
+                st.session_state.meal_added_message = "Bu öğün daha önce gününe eklendi."
+        except DailyMealStoreError as exc:
+            logger.warning("Öğün MongoDB'ye eklenemedi: %s", exc)
+            st.error(str(exc))
     if st.session_state.get("meal_added_message"):
         st.success(st.session_state.meal_added_message)
 
 
 def _render_meal_analysis() -> None:
-    st.markdown('<div class="meal-analysis-head"><span>🍽️</span><div><h1>Tabağımı Analiz Et</h1><p>Tabağının fotoğrafını yükle, yaklaşık besin değerini hesaplayalım.</p></div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="feature-section-intro"><span class="feature-section-icon">🍽️</span><div><h1>Tabağımı Analiz Et</h1><p>Tabağının fotoğrafını yükle, yaklaşık besin değerini hesaplayalım.</p></div></div>', unsafe_allow_html=True)
     valid_goals = ["Kilo Verme", "Dengeli Beslenme", "Kas Yapma"]
     current_goal = st.session_state.get("goal")
     if current_goal not in valid_goals:
@@ -972,12 +1287,24 @@ def _render_meal_analysis() -> None:
 
     if "meal_analysis_cache" not in st.session_state:
         st.session_state.meal_analysis_cache = {}
-    uploaded_meal = st.file_uploader(
-        "Tabağının fotoğrafı",
-        type=["jpg", "jpeg", "png"],
-        key="meal_photo_uploader",
-        help="En fazla 10 MB boyutunda, tabağın tamamını net gösteren bir fotoğraf seç.",
-    )
+    with st.container(key="meal_upload_card"):
+        upload_copy, upload_action = st.columns([2.2, 1], gap="large", vertical_alignment="center")
+        with upload_copy:
+            st.markdown(
+                '<div class="upload-card-copy"><div class="upload-card-icon">📷</div><div>'
+                '<h3>Tabağının fotoğrafını yükle</h3>'
+                '<p>Tabağın tamamını mümkün olduğunca net gösteren bir fotoğraf seç.</p>'
+                '<small>🛡 Fotoğrafın yalnızca analiz için kullanılır.</small></div></div>',
+                unsafe_allow_html=True,
+            )
+        with upload_action:
+            uploaded_meal = st.file_uploader(
+                "Fotoğraf Seç",
+                type=["jpg", "jpeg", "png"],
+                key="meal_photo_uploader",
+                help="En fazla 10 MB boyutunda, tabağın tamamını net gösteren bir fotoğraf seç.",
+                label_visibility="collapsed",
+            )
     image_bytes = uploaded_meal.getvalue() if uploaded_meal is not None else b""
     photo_hash = hashlib.sha256(image_bytes).hexdigest() if image_bytes else ""
     if photo_hash:
@@ -998,10 +1325,9 @@ def _render_meal_analysis() -> None:
         with action_column:
             st.markdown("#### Fotoğraf analize hazır")
             st.caption("Analiz yalnızca düğmeye bastığında başlar.")
-            analyze_clicked = st.button("Tabağımı AI ile Analiz Et", type="primary", key="analyze_meal_photo", use_container_width=True)
+            analyze_clicked = st.button("Tabağımı Analiz Et", type="primary", key="analyze_meal_photo", use_container_width=True)
     else:
-        st.markdown('<div class="meal-upload-empty">📷 Tabağı üstten veya hafif çapraz açıyla, aydınlık ve net biçimde çek.</div>', unsafe_allow_html=True)
-        analyze_clicked = st.button("Tabağımı AI ile Analiz Et", type="primary", key="analyze_meal_without_photo")
+        analyze_clicked = False
 
     cache_key = f"{photo_hash}:{current_goal}" if photo_hash else ""
     if analyze_clicked:
@@ -1029,34 +1355,348 @@ def _render_meal_analysis() -> None:
         _render_meal_result(active["data"], current_goal, photo_hash)
 
 
+def _daily_meal_totals(meals: list[dict]) -> dict[str, float]:
+    fields = {
+        "calories_kcal": "total_calories_kcal",
+        "protein_g": "total_protein_g",
+        "carbohydrates_g": "total_carbohydrates_g",
+        "fat_g": "total_fat_g",
+        "fiber_g": "total_fiber_g",
+    }
+    totals: dict[str, float] = {}
+    for output_key, record_key in fields.items():
+        total = 0.0
+        for meal in meals:
+            value = meal.get(record_key)
+            try:
+                total += float(value) if value is not None else 0.0
+            except (TypeError, ValueError):
+                continue
+        totals[output_key] = round(total, 1)
+    return totals
+
+
+def _meal_time_label(meal: dict) -> str:
+    """Öğün kaydının saatini yerel saatle kullanıcıya uygun biçimde döndürür.
+
+    Args:
+        meal: ``datetime`` alanını içeren günlük öğün kaydı.
+
+    Returns:
+        str: ``14.30`` biçiminde saat veya saat okunamadığında açıklayıcı metin.
+    """
+    raw_datetime = str(meal.get("datetime") or "").strip()
+    try:
+        parsed = datetime.fromisoformat(raw_datetime.replace("Z", "+00:00"))
+        return parsed.astimezone().strftime("%H.%M")
+    except ValueError:
+        return "Saat bilgisi yok"
+
+
+def _daily_heading(selected_date: date, today: date) -> str:
+    """Seçilen gün için Türkçe ve teknik olmayan bölüm başlığı üretir.
+
+    Args:
+        selected_date: Günüm ekranında açık olan yerel tarih.
+        today: Kullanıcının bilgisayarındaki bugünün tarihi.
+
+    Returns:
+        str: Bugün için ``Bugün — 23 Ağustos``, geçmiş gün için tam tarih metni.
+    """
+    month_names = (
+        "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",
+        "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık",
+    )
+    date_label = f"{selected_date.day} {month_names[selected_date.month - 1]}"
+    if selected_date == today:
+        return f"Bugün — {date_label}"
+    return f"{date_label} {selected_date.year}"
+
+
+def _render_daily_meals() -> None:
+    st.markdown(
+        '<div class="feature-section-intro"><span class="feature-section-icon">📅</span><div><h1>Beslenme Günlüğüm</h1>'
+        '<p>Eklediğin öğünleri ve gün içindeki yaklaşık besin toplamlarını burada takip et.</p></div></div>',
+        unsafe_allow_html=True,
+    )
+    if "daily_meals" not in st.session_state:
+        st.session_state.daily_meals = []
+    if "daily_completion_cache" not in st.session_state:
+        st.session_state.daily_completion_cache = {}
+
+    meals = st.session_state.daily_meals
+    goal = st.session_state.get("goal", "Dengeli Beslenme")
+
+    # Eski sahipsiz kayıtlar yalnızca giriş yapan kullanıcı açıkça onay verirse bağlanır.
+    try:
+        current_user_id = str(st.user.get("sub") or "").strip() if st.user.is_logged_in else ""
+    except (AttributeError, KeyError, TypeError):
+        current_user_id = ""
+    if current_user_id:
+        try:
+            legacy_meal_count = count_claimable_legacy_daily_meals(current_user_id)
+        except DailyMealStoreError as exc:
+            logger.warning("Eski öğün kayıtları kontrol edilemedi: %s", exc)
+            legacy_meal_count = 0
+        if legacy_meal_count > 0:
+            with st.container(border=True):
+                st.info(f"Eski öğünler bulundu: {legacy_meal_count} kayıt")
+                st.caption(
+                    "Bunlar kullanıcı hesabı eklenmeden önce kaydedilmiş öğünlerdir. "
+                    "Yalnızca onay verirsen bu Google hesabına bağlanır."
+                )
+                if st.button(
+                    "Hesabıma Aktar",
+                    type="primary",
+                    key="claim_legacy_daily_meals",
+                    use_container_width=True,
+                ):
+                    try:
+                        claimed_count = claim_legacy_daily_meals_for_user(current_user_id)
+                        st.session_state.daily_meals = load_daily_meals()
+                        st.session_state.legacy_meal_claim_message = (
+                            f"{claimed_count} eski öğün hesabına aktarıldı."
+                            if claimed_count > 0
+                            else "Aktarılacak yeni bir eski öğün bulunamadı."
+                        )
+                        st.rerun()
+                    except DailyMealStoreError as exc:
+                        logger.warning("Eski öğünler hesaba aktarılamadı: %s", exc)
+                        st.error(str(exc))
+    legacy_claim_message = st.session_state.pop("legacy_meal_claim_message", None)
+    if legacy_claim_message:
+        st.success(legacy_claim_message)
+    st.markdown(f'<div class="label-current-goal">🎯 Seçili hedefin: <strong>{escape(goal)}</strong></div>', unsafe_allow_html=True)
+
+    # Seçili tarih oturumda saklanır; sayfa ilk kez açıldığında yerel bugüne ayarlanır.
+    today = datetime.now().astimezone().date()
+    stored_date = st.session_state.get("daily_selected_date", today)
+    if isinstance(stored_date, str):
+        try:
+            stored_date = date.fromisoformat(stored_date)
+        except ValueError:
+            stored_date = today
+    selected_date = stored_date if isinstance(stored_date, date) else today
+    st.session_state.daily_selected_date = selected_date
+
+    # Gün değiştirme kontrolleri yalnızca ekranda açık olan günü değiştirir; kayıtlar korunur.
+    previous, heading, following, return_today = st.columns([1.2, 2.2, 1.2, 1.2], gap="small")
+    with previous:
+        if st.button("← Önceki gün", key="daily_previous_day", use_container_width=True):
+            st.session_state.daily_selected_date = selected_date - timedelta(days=1)
+            st.rerun()
+    with heading:
+        st.markdown(f"### {_daily_heading(selected_date, today)}")
+    with following:
+        if st.button("Sonraki gün →", key="daily_next_day", use_container_width=True):
+            st.session_state.daily_selected_date = selected_date + timedelta(days=1)
+            st.rerun()
+    with return_today:
+        if st.button("Bugüne dön", key="daily_return_today", use_container_width=True):
+            st.session_state.daily_selected_date = today
+            st.rerun()
+
+    # Seçili gün MongoDB'de tarih aralığıyla sorgulanır. Bağlantı geçici olarak
+    # kullanılamazsa ekrandaki oturum verisiyle mevcut davranış korunur.
+    try:
+        selected_meals = load_daily_meals_for_date(selected_date)
+    except DailyMealStoreError as exc:
+        logger.warning("Seçili gün MongoDB'den okunamadı; oturum verisi kullanılıyor: %s", exc)
+        selected_meals = meals_for_date(meals, selected_date)
+    totals = _daily_meal_totals(selected_meals)
+    total_columns = st.columns(5, gap="medium")
+    for column, (label, key, unit) in zip(
+        total_columns,
+        [
+            ("Günlük kalori", "calories_kcal", "kcal"),
+            ("Protein", "protein_g", "g"),
+            ("Karbonhidrat", "carbohydrates_g", "g"),
+            ("Yağ", "fat_g", "g"),
+            ("Lif", "fiber_g", "g"),
+        ],
+    ):
+        column.metric(label, _meal_value(totals[key], unit))
+
+    if not selected_meals:
+        st.info("Bu tarihe ait eklenmiş bir öğün yok.")
+
+    weekly = weekly_summary(meals)
+    st.markdown("### Haftalık Özet")
+    st.caption("Bugün dahil son 7 takvim günündeki kayıtlarına göre günlük ortalamalar.")
+    average_columns = st.columns(4, gap="medium")
+    for column, (label, key, unit) in zip(
+        average_columns,
+        [
+            ("Ort. kalori", "calories_kcal", "kcal"),
+            ("Ort. protein", "protein_g", "g"),
+            ("Ort. karbonhidrat", "carbohydrates_g", "g"),
+            ("Ort. yağ", "fat_g", "g"),
+        ],
+    ):
+        column.metric(label, _meal_value(weekly["averages"][key], unit))
+
+    st.markdown(
+        f'<div class="weekly-summary-note">Son 7 günde toplam <strong>{weekly["meal_count"]}</strong> öğün kaydettin.</div>',
+        unsafe_allow_html=True,
+    )
+    max_calories = max((float(day["calories_kcal"]) for day in weekly["days"]), default=0.0) or 1.0
+    bar_markup = "".join(
+        (
+            '<div class="weekly-chart-bar">'
+            f'<span>{float(day["calories_kcal"]):.0f} kcal</span>'
+            f'<i style="height:{max(5, round((float(day["calories_kcal"]) / max_calories) * 100))}%"></i>'
+            f'<small>{escape(str(day["label"]))}</small>'
+            '</div>'
+        )
+        for day in weekly["days"]
+    )
+    st.markdown(
+        '<div class="weekly-chart"><h4>Günlere göre kalori</h4>'
+        f'<div class="weekly-chart-bars">{bar_markup}</div></div>',
+        unsafe_allow_html=True,
+    )
+
+    weekly_signature = json.dumps(weekly["days"], ensure_ascii=False, sort_keys=True)
+    weekly_comment_key = hashlib.sha256(f"{goal}:{weekly_signature}".encode("utf-8")).hexdigest()
+    if "weekly_comment_cache" not in st.session_state:
+        st.session_state.weekly_comment_cache = {}
+    st.markdown("### AI ile Haftamı Yorumla")
+    st.caption("Yapay zekâ hedefin ve haftalık yaklaşık toplamların için kısa, genel bir değerlendirme yapar.")
+    if weekly["meal_count"] == 0:
+        st.info("Son 7 günde analiz edilip eklenmiş bir öğün bulunmuyor.")
+    elif st.button("AI ile Haftamı Yorumla", type="primary", key="comment_my_week", use_container_width=True):
+        if weekly_comment_key not in st.session_state.weekly_comment_cache:
+            with st.spinner("Haftan değerlendiriliyor..."):
+                comment = comment_on_weekly_summary(goal, weekly)
+            if comment:
+                st.session_state.weekly_comment_cache[weekly_comment_key] = comment
+            else:
+                st.warning("Şu anda haftalık AI yorumu alınamadı. API anahtarını, kotanı ve bağlantını kontrol edip tekrar deneyebilirsin.")
+    weekly_comment = st.session_state.weekly_comment_cache.get(weekly_comment_key)
+    if weekly_comment:
+        with st.container(border=True):
+            st.markdown("#### Haftalık AI Yorumu")
+            st.write(weekly_comment)
+            st.caption("Bu yorum yaklaşık kayıtlara dayanır; tıbbi veya diyetetik tavsiye değildir.")
+
+    st.markdown("### Eklenen öğünler")
+    # Liste yalnızca yukarıda seçilen güne ait kayıtları gösterir.
+    for index, meal in enumerate(selected_meals):
+        meal_name = escape(str(meal.get("meal_name") or "Analiz edilen öğün"))
+        timestamp = _meal_time_label(meal)
+        item_names = ", ".join(
+            str(item.get("name") or "") for item in meal.get("items", []) if isinstance(item, dict)
+        ) or "Ürün bilgisi yok"
+        details, remove = st.columns([6, 1], vertical_alignment="center")
+        with details:
+            st.markdown(
+                f'<div class="meal-item-card"><div class="meal-item-title">{meal_name}</div>'
+                f'<div class="meal-item-grams">{escape(timestamp)}</div>'
+                f'<div class="meal-item-grams">{escape(item_names)}</div>'
+                f'<div class="meal-item-grid"><span>Kalori<b>{_meal_value(meal.get("total_calories_kcal"), "kcal")}</b></span>'
+                f'<span>Protein<b>{_meal_value(meal.get("total_protein_g"), "g")}</b></span>'
+                f'<span>Karbonhidrat<b>{_meal_value(meal.get("total_carbohydrates_g"), "g")}</b></span>'
+                f'<span>Yağ<b>{_meal_value(meal.get("total_fat_g"), "g")}</b></span></div></div>',
+                unsafe_allow_html=True,
+            )
+        with remove:
+            if st.button("Sil", key=f"remove_daily_meal_{meal.get('analysis_id', index)}", use_container_width=True):
+                analysis_id = str(meal.get("analysis_id") or "")
+                if not analysis_id:
+                    st.warning("Bu öğün kaydı silinemedi.")
+                else:
+                    try:
+                        if delete_daily_meal(analysis_id):
+                            # Seçili günün geçici sıra numarası yerine benzersiz kimlikle doğru kayıt silinir.
+                            st.session_state.daily_meals = [
+                                record
+                                for record in st.session_state.daily_meals
+                                if str(record.get("analysis_id") or "") != analysis_id
+                            ]
+                            st.session_state.daily_completion_message = "Öğün gününden kaldırıldı."
+                            st.rerun()
+                        else:
+                            st.warning("Bu öğün daha önce kaldırılmış olabilir.")
+                    except DailyMealStoreError as exc:
+                        logger.warning("Öğün MongoDB'den silinemedi: %s", exc)
+                        st.error(str(exc))
+
+    if st.session_state.get("daily_completion_message"):
+        st.success(st.session_state.daily_completion_message)
+
+    # AI önerisi yalnızca seçili günün toplamlarına ait olacak biçimde önbellek anahtarı oluşturulur.
+    meal_signature = "|".join(str(meal.get("analysis_id") or "") for meal in selected_meals)
+    completion_key = hashlib.sha256(
+        f"{goal}:{selected_date.isoformat()}:{meal_signature}".encode("utf-8")
+    ).hexdigest()
+    st.markdown("### AI ile Günümü Tamamla")
+    st.caption("Yapay zekâ, hedefin ve seçili günün yaklaşık toplamlarına göre yalnızca bir sonraki öğün için kısa bir fikir verir.")
+    if st.button(
+        "AI ile Günümü Tamamla",
+        type="primary",
+        key="complete_my_day",
+        use_container_width=True,
+        disabled=not selected_meals,
+    ):
+        if completion_key not in st.session_state.daily_completion_cache:
+            with st.spinner("Günün değerlendiriliyor..."):
+                suggestion = suggest_next_meal(
+                    goal,
+                    totals,
+                    [str(meal.get("meal_name") or "Öğün") for meal in selected_meals],
+                )
+            if suggestion:
+                st.session_state.daily_completion_cache[completion_key] = suggestion
+            else:
+                st.warning("Şu anda yapay zekâ önerisi alınamadı. API anahtarını, kotanı ve bağlantını kontrol edip tekrar deneyebilirsin.")
+
+    suggestion = st.session_state.daily_completion_cache.get(completion_key)
+    if suggestion:
+        with st.container(border=True):
+            st.markdown("#### Sonraki öğün için öneri")
+            st.write(suggestion)
+            st.caption("Bu öneri yaklaşık gün toplamlarına dayanır; tıbbi veya diyetetik tavsiye değildir.")
+
+
 def render_discover(search: Callable[[list[str], str], None], navigate: Callable[[str], None]) -> None:
     if st.button("← Geri Dön", key="discover_back_home"):
         navigate("Ana Sayfa")
         st.rerun()
-    section_options = ["🍲 Malzemelerimden Tarif Bul", "🏷️ Besin Etiketi Analizi", "🍽️ Tabağımı Analiz Et", "▶️ Hedefime Uygun Videolar"]
+    section_options = ["🍲 Malzemelerimden Tarif Bul", "🏷️ Besin Etiketi Analizi", "▶️ Hedefime Uygun Videolar", "🍽️ Tabağımı Analiz Et", "📅 Beslenme Günlüğüm"]
+    if st.session_state.get("discover_section") not in section_options:
+        st.session_state.discover_section = section_options[0]
+    if st.session_state.get("discover_section_switch") not in section_options:
+        st.session_state.discover_section_switch = st.session_state.discover_section
+    st.markdown('<div class="discover-section-title">Beslenme Asistanım</div>', unsafe_allow_html=True)
     with st.container(key="discover_section_nav"):
-        active_section = st.radio(
-            "Tarifimi Keşfet bölümü",
+        selected_section = st.radio(
+            "",
             section_options,
+            key="discover_section_switch",
             horizontal=True,
             label_visibility="collapsed",
-            key="discover_section",
         )
+    if selected_section != st.session_state.discover_section:
+        st.session_state.discover_section = selected_section
+        st.rerun()
+    active_section = st.session_state.discover_section
     if active_section == section_options[0]:
         _render_ingredient_discover(search, navigate)
     elif active_section == section_options[1]:
         _render_nutrition_label_analysis()
     elif active_section == section_options[2]:
+        _render_workout_videos(st.session_state.get("goal", "Dengeli Beslenme"))
+    elif active_section == section_options[3]:
         _render_meal_analysis()
     else:
-        _render_workout_videos(st.session_state.get("goal", "Dengeli Beslenme"))
+        _render_daily_meals()
 
 
 def _render_ingredient_discover(search: Callable[[list[str], str], None], navigate: Callable[[str], None]) -> None:
 
     st.markdown(
-        '<div class="discover-intro"><h1>Malzemelerini Gir</h1>'
-        '<p>Elindeki malzemeleri fotoğraftan veya elle ekle; hedefinle uyumlu tarifleri birlikte bulalım.</p></div>',
+        '<div class="feature-section-intro"><span class="feature-section-icon">🥗</span><div><h1>Malzemelerini Gir</h1>'
+        '<p>Elindeki malzemeleri fotoğraftan veya elle ekle; hedefinle uyumlu tarifleri birlikte bulalım.</p></div></div>',
         unsafe_allow_html=True,
     )
     st.markdown('<p class="muted">Elindeki malzemeleri ekleyerek sana uygun tarifleri bulmamıza yardımcı ol.</p>', unsafe_allow_html=True)
@@ -1064,18 +1704,24 @@ def _render_ingredient_discover(search: Callable[[list[str], str], None], naviga
     if "image_analysis_cache" not in st.session_state:
         st.session_state.image_analysis_cache = {}
 
-    with st.container(border=True):
-        st.markdown(
-            '<div class="photo-analysis-head"><h3><span class="photo-analysis-icon">✦</span>Fotoğraftan Malzemeleri Bul</h3>'
-            '<p>Buzdolabının veya yiyeceklerinin fotoğrafını yükle; yapay zekâ gördüğü yenilebilir malzemeleri listene eklesin.</p></div>',
-            unsafe_allow_html=True,
-        )
-        uploaded_photo = st.file_uploader(
-            "Yiyecek fotoğrafı",
-            type=["jpg", "jpeg", "png"],
-            key="ingredient_photo_uploader",
-            help="JPG, JPEG veya PNG biçiminde bir fotoğraf yükleyebilirsin.",
-        )
+    with st.container(key="ingredient_upload_card"):
+        upload_copy, upload_action = st.columns([2.2, 1], gap="large", vertical_alignment="center")
+        with upload_copy:
+            st.markdown(
+                '<div class="upload-card-copy"><div class="upload-card-icon">📷</div><div>'
+                '<h3>Yiyecek fotoğrafını yükle</h3>'
+                '<p>Buzdolabının veya yiyeceklerinin net bir fotoğrafını seç.</p>'
+                '<small>🛡 Fotoğrafın yalnızca analiz için kullanılır.</small></div></div>',
+                unsafe_allow_html=True,
+            )
+        with upload_action:
+            uploaded_photo = st.file_uploader(
+                "Fotoğraf Seç",
+                type=["jpg", "jpeg", "png"],
+                key="ingredient_photo_uploader",
+                help="JPG, JPEG veya PNG biçiminde bir fotoğraf yükleyebilirsin.",
+                label_visibility="collapsed",
+            )
         if uploaded_photo is not None:
             photo_bytes = uploaded_photo.getvalue()
             if len(photo_bytes) > 10 * 1024 * 1024:
@@ -1096,13 +1742,20 @@ def _render_ingredient_discover(search: Callable[[list[str], str], None], naviga
                 if analyze_clicked:
                     photo_hash = hashlib.sha256(photo_bytes).hexdigest()
                     cached_ingredients = st.session_state.image_analysis_cache.get(photo_hash)
+                    analysis_error = None
                     if cached_ingredients is None:
-                        with st.spinner("Fotoğraftaki malzemeler tanınıyor..."):
-                            cached_ingredients = analyze_food_image(photo_bytes, uploaded_photo.type)
+                        try:
+                            with st.spinner("Fotoğraftaki malzemeler tanınıyor..."):
+                                cached_ingredients = analyze_food_image(photo_bytes, uploaded_photo.type)
+                        except GeminiServiceError as exc:
+                            analysis_error = str(exc)
+                            cached_ingredients = None
                         if cached_ingredients is not None:
                             st.session_state.image_analysis_cache[photo_hash] = cached_ingredients
-                    if cached_ingredients is None:
-                        st.error("Fotoğraf şu anda analiz edilemedi. Gemini API anahtarını ve kotanı kontrol edip tekrar deneyebilirsin.")
+                    if analysis_error:
+                        st.error(analysis_error)
+                    elif cached_ingredients is None:
+                        st.error("Fotoğraf şu anda analiz edilemedi. Lütfen tekrar dene.")
                     elif not cached_ingredients:
                         st.info("Fotoğrafta açıkça tanınabilen bir yiyecek bulunamadı.")
                     else:
@@ -1220,7 +1873,13 @@ def _render_ingredient_discover(search: Callable[[list[str], str], None], naviga
 
     if not combined:
         st.info("Malzemelerini yazdıktan sonra Enter'a veya “Listeye Ekle” butonuna bas.")
-    if st.button("Tarifleri Keşfet →", type="primary", use_container_width=True, disabled=not combined):
+    if st.button(
+        "Tarifleri Keşfet →",
+        type="primary",
+        use_container_width=True,
+        disabled=not combined,
+        key="discover_recipes_submit",
+    ):
         search(combined, goal)
         if st.session_state.page == "Sonuçlar":
             st.rerun()
@@ -1240,18 +1899,20 @@ def _clean_missing_ingredient(item: object) -> str:
 
 def _recipe_card(recipe: dict, goal: str, show_score: bool = True, card_variant: str = "") -> str:
     name = escape(str(recipe.get("name", "İsimsiz tarif")))
-    image = escape(_image_source(str(recipe.get("image", ""))), quote=True)
-    if image:
-        image_html = f'<img src="{image}" alt="{name}">'
-    else:
-        image_html = '''<div class="recipe-image-placeholder"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M9 27h30a15 15 0 0 1-30 0Z" fill="none" stroke="currentColor" stroke-width="2.5"/><path d="M24 19c-4-7 6-7 3-14M17 21c-3-5 4-6 2-11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg><span>Görsel hazırlanıyor</span></div>'''
+    primary_image, fallback_image = _recipe_image_sources(recipe)
+    image = escape(primary_image, quote=True)
+    fallback = escape(fallback_image, quote=True)
+    image_html = (
+        f'<img src="{image}" alt="{name}" loading="lazy" '
+        f'onerror="this.onerror=null;this.src=\'{fallback}\';">'
+    )
     missing = recipe.get("missing", [])
     missing_text = ", ".join(escape(_clean_missing_ingredient(item)) for item in missing[:4]) if missing else "Eksik malzeme yok"
     label = escape(str(recipe.get("label", "Yerel tarif")))
     detail = escape(str(recipe.get("detail", f"{recipe.get('used', 0)}/{recipe.get('total', 0)} malzeme uyumu")))
     missing_html = f'<div class="missing" translate="no"><strong>Eksikler:</strong> {missing_text}</div>' if recipe.get("show_missing", True) and missing else ""
-    score_html = f'<span class="goal-pill">{escape(goal)} · {recipe.get("score", 0)} puan</span>' if show_score else ""
-    card_class = "recipe-card" if show_score else "recipe-card recipe-card--library"
+    # Uyum puanı sıralamada arka planda kullanılabilir; arayüzde gösterilmez.
+    card_class = "recipe-card recipe-card--library"
     if card_variant == "home":
         card_class += " home-recipe-card"
     return f"""
@@ -1260,7 +1921,7 @@ def _recipe_card(recipe: dict, goal: str, show_score: bool = True, card_variant:
       <div class="recipe-body">
         <div class="recipe-type">{detail}</div>
         <div class="recipe-name">{name}</div>
-        <div class="recipe-meta"><span class="nutrition"><span class="meta-icon">♨</span> {recipe.get('calories', 0):.0f} kcal</span><span class="nutrition"><span class="meta-icon">♧</span> {recipe.get('protein', 0):.0f} g protein</span>{score_html}</div>
+        <div class="recipe-meta"><span class="nutrition"><span class="meta-icon">♨</span> {recipe.get('calories', 0):.0f} kcal</span><span class="nutrition"><span class="meta-icon">♧</span> {recipe.get('protein', 0):.0f} g protein</span></div>
         {missing_html}
       </div>
     </div>
@@ -1279,7 +1940,20 @@ def _recipe_grid(
         columns = st.columns(3, gap="medium")
         for column, recipe in zip(columns, recipes[start:start + 3]):
             with column:
-                st.markdown(_recipe_card(recipe, goal, show_score=show_score, card_variant=card_variant), unsafe_allow_html=True)
+                st.markdown(
+                    _recipe_card(recipe, goal, show_score=show_score, card_variant=card_variant),
+                    unsafe_allow_html=True,
+                )
+                # Streamlit karttan sonra düğmeyi ayrı bir eleman olarak
+                # çiziyor. Kısa başlıklı ana sayfa kartlarına küçük bir
+                # dengeleme boşluğu ekleyerek düğmeleri aynı hizada tutarız.
+                if card_variant == "home":
+                    recipe_name = str(recipe.get("name", ""))
+                    spacer_height = 28 if len(recipe_name) <= 42 else 0
+                    st.markdown(
+                        f'<div class="home-recipe-button-spacer" style="height:{spacer_height}px"></div>',
+                        unsafe_allow_html=True,
+                    )
                 if navigate and st.button("Tarifi İncele", key=f"detail_{recipe.get('id', recipe.get('name', start))}", use_container_width=True):
                     st.session_state.selected_recipe = recipe
                     st.session_state.selected_recipe_context = detail_context
@@ -1288,7 +1962,7 @@ def _recipe_grid(
 
 
 def _render_workout_videos(goal: str) -> None:
-    st.markdown('<div class="workout-section-head"><span>▶</span><div><h2>Hedefini Destekleyen Videolar</h2><p>Beslenme hedefini hareketle desteklemek için seviyeni seç.</p></div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="feature-section-intro"><span class="feature-section-icon">▶</span><div><h1>Hedefini Destekleyen Videolar</h1><p>Beslenme hedefini hareketle desteklemek için seviyeni seç.</p></div></div>', unsafe_allow_html=True)
     valid_goals = ["Kilo Verme", "Dengeli Beslenme", "Kas Yapma"]
     if goal not in valid_goals:
         goal = "Dengeli Beslenme"
@@ -1422,7 +2096,7 @@ def _recipe_category(recipe: dict) -> str:
 
 
 def render_recipes(recipes: list[dict], navigate: Callable[[str], None]) -> None:
-    st.title("Tarif Kütüphanesi")
+    st.title("Tarifler")
     st.markdown('<p class="muted">Öne çıkan tarifleri keşfet veya aradığın lezzeti kolayca bul.</p>', unsafe_allow_html=True)
     if not recipes:
         recipes = FEATURED_RECIPES
@@ -1591,11 +2265,15 @@ def render_recipe_detail(recipe: dict, navigate: Callable[[str], None]) -> None:
 
     left, right = st.columns([1.15, 1], gap="large")
     with left:
-        image_source = escape(_image_source(str(recipe.get("image", ""))), quote=True)
-        if image_source:
-            st.markdown(f'<img class="detail-photo" src="{image_source}" alt="{escape(str(recipe.get("name", "Tarif")))}">', unsafe_allow_html=True)
-        else:
-            st.markdown('''<div class="detail-photo-placeholder"><svg viewBox="0 0 80 80" aria-hidden="true"><path d="M14 45h52a26 26 0 0 1-52 0Z" fill="none" stroke="currentColor" stroke-width="3"/><path d="M40 31c-7-11 10-12 5-23M28 35c-5-8 7-10 3-18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg><span>Bu tarifin görseli hazırlanıyor</span></div>''', unsafe_allow_html=True)
+        primary_image, fallback_image = _recipe_image_sources(recipe)
+        image_source = escape(primary_image, quote=True)
+        fallback_source = escape(fallback_image, quote=True)
+        st.markdown(
+            f'<img class="detail-photo" src="{image_source}" '
+            f'alt="{escape(str(recipe.get("name", "Tarif")))}" '
+            f'onerror="this.onerror=null;this.src=\'{fallback_source}\';">',
+            unsafe_allow_html=True,
+        )
     with right:
         calories = float(recipe.get("calories", 0) or 0)
         protein = float(recipe.get("protein", 0) or 0)
@@ -1780,21 +2458,29 @@ def _render_inline_recipe_assistant(recipe: dict, missing: list, show_missing: b
 
 
 def render_about() -> None:
-    left, right = st.columns([1, 1], gap="large")
-    with left:
-        st.title("Hakkımızda")
-        st.markdown('<p class="muted">NutriMatch, evindeki malzemelerle sağlıklı ve lezzetli tarif keşfetmeni sağlayan akıllı bir tarif asistanıdır.</p>', unsafe_allow_html=True)
-        st.markdown('<p class="muted">Amacımız, sağlıklı beslenmeyi kolaylaştırmak ve herkesin kendi mutfağında israf olmadan seçim yapmasına yardımcı olmaktır.</p>', unsafe_allow_html=True)
-        st.markdown("Kişiselleştirilmiş Tarif Önerileri  \nSağlıklı ve Dengeli Beslenme  \nZaman Tasarrufu  \nYüzlerce Lezzetli Tarif")
-
-    with right:
-        st.markdown(f'<img class="hero-image" src="{ABOUT_IMAGE}" alt="Sağlıklı tabak">', unsafe_allow_html=True)
-
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    columns = st.columns(3, gap="large")
-    stats = [("10+", "Her aramada tarif"), ("3", "Beslenme hedefi"), ("100%", "Kişiselleştirilmiş")]
-    for column, (value, label) in zip(columns, stats):
-        column.markdown(f'<div class="stat-card"><strong>{value}</strong><span>{label}</span></div>', unsafe_allow_html=True)
+    st.markdown(
+        f'''<section class="about-page">
+            <div class="about-top">
+                <div>
+                    <p class="about-kicker">NUTRIMATCH HAKKINDA</p>
+                    <h1 class="about-title">Beslenmeyi daha sade ve anlaşılır kılmak için</h1>
+                    <p class="about-copy">NutriMatch, günlük beslenme kararlarını kolaylaştırma fikrinden doğdu. Ne pişireceğini bulmaktan yediğini anlamaya kadar uzanan süreci tek bir sade deneyimde buluşturur.</p>
+                    <p class="about-copy">Amacımız kusursuz beslenme vaat etmek değil; kullanıcının elindeki bilgilerle daha bilinçli seçimler yapmasına yardımcı olmaktır.</p>
+                </div>
+                <img class="about-image" src="{ABOUT_IMAGE}" alt="Sağlıklı yemek tabağı">
+            </div>
+            <div class="about-quote">
+                <span>Küçük seçimleri görünür, günlük takibi daha anlamlı hâle getiriyoruz.</span>
+            </div>
+            <div class="about-values">
+                <div class="about-value"><span class="about-value-icon">◌</span><h3>Sadelik</h3><p>Karmaşık bilgileri anlaşılır sunarız.</p></div>
+                <div class="about-value"><span class="about-value-icon">♧</span><h3>Kişiselleştirme</h3><p>Farklı hedeflere aynı kalıpla yaklaşmayız.</p></div>
+                <div class="about-value"><span class="about-value-icon">◇</span><h3>Sorumluluk</h3><p>Sonuçları tahmin ve bilgilendirme olarak açıklarız.</p></div>
+            </div>
+            <div class="about-note"><span>ⓘ</span>NutriMatch profesyonel sağlık danışmanlığının yerini almaz.</div>
+        </section>''',
+        unsafe_allow_html=True,
+    )
 
 
 def render_assistant(
